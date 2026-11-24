@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Approval Lens",
-  "version": "0.2.0",
+  "version": "0.2.5",
   "description": "Local-first Web3 permission and signature inspector. Explains EVM approvals, Permit/Permit2 signatures, and risk evidence before you sign.",
   "permissions": ["storage"],
   "action": {

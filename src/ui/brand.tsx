@@ -1,9 +1,85 @@
 import { useEffect, useState } from 'react';
-import type { Severity, Verdict } from '../core/types';
+import {
+  detectDefaultLocale,
+  isSupportedLocale,
+  SUPPORTED_LOCALES,
+} from '../core/i18n';
+import type { Locale, Severity, Verdict } from '../core/types';
 
 export type ThemeMode = 'dark' | 'light';
 
 const THEME_STORAGE_KEY = 'approval_lens_theme';
+const LOCALE_STORAGE_KEY = 'approval_lens_locale';
+
+export function useLocale(): [Locale, (next: Locale) => void] {
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    try {
+      const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
+      if (isSupportedLocale(saved)) return saved;
+    } catch {
+      // Fallback
+    }
+    return detectDefaultLocale(typeof navigator !== 'undefined' ? navigator.language : 'en');
+  });
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    try {
+      localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [locale]);
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LOCALE_STORAGE_KEY && isSupportedLocale(e.newValue)) {
+        setLocaleState(e.newValue);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  const setLocale = (next: Locale) => {
+    setLocaleState(next);
+    try {
+      chrome?.runtime?.sendMessage?.({
+        type: 'UPDATE_SETTINGS',
+        settings: { locale: next },
+      });
+    } catch {
+      // Ignore outside extension context
+    }
+  };
+
+  return [locale, setLocale];
+}
+
+export function LocaleSwitcher({
+  locale,
+  onChange,
+}: {
+  locale: Locale;
+  onChange: (next: Locale) => void;
+}) {
+  return (
+    <div className="locale-seg" role="group" aria-label="Language">
+      {SUPPORTED_LOCALES.map((opt) => (
+        <button
+          key={opt.code}
+          type="button"
+          className={`locale-seg-btn ${locale === opt.code ? 'active' : ''}`}
+          onClick={() => onChange(opt.code)}
+          title={opt.label}
+          aria-pressed={locale === opt.code}
+        >
+          {opt.shortLabel}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function useTheme(): [ThemeMode, () => void] {
   const [theme, setTheme] = useState<ThemeMode>(() => {

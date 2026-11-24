@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { buildPlainEnglishSummary } from '../../core/format';
+import { getMessages } from '../../core/i18n';
 import { buildSanitizedReport, renderHtmlReport } from '../../core/report';
 import type { ExtensionSettings, HistoryRecord } from '../../core/types';
 import {
+  LocaleSwitcher,
   LockPrivacyIcon,
   OpticalCrestBrandmark,
   OpticalCrestCombo,
   ThemeToggleIcon,
+  useLocale,
   useTheme,
   VerdictIcon,
 } from '../brand';
@@ -24,6 +28,9 @@ function downloadFile(filename: string, content: string, mimeType: string) {
 
 function PopupApp() {
   const [theme, toggleTheme] = useTheme();
+  const [locale, setLocale] = useLocale();
+  const msg = getMessages(locale);
+
   const [settings, setSettings] = useState<ExtensionSettings>({
     enabled: true,
     rpcEnrichmentEnabled: false,
@@ -69,19 +76,27 @@ function PopupApp() {
     setHistory([]);
   };
 
+  const activeNetFeatures = [
+    settings.rpcEnrichmentEnabled ? msg.featureRpc : null,
+    settings.abiLookupEnabled ? msg.featureSourcify : null,
+  ]
+    .filter(Boolean)
+    .join(' + ');
+
   return (
     <main className="popup-shell">
       <header className="header">
-        <OpticalCrestCombo markSize={23} wordScale={0.74} />
+        <OpticalCrestCombo markSize={22} wordScale={0.72} />
         <div className="header-controls">
+          <LocaleSwitcher locale={locale} onChange={setLocale} />
           <span className={`pill ${settings.enabled ? 'pill-brand' : ''}`}>
-            {settings.enabled ? 'Active' : 'Paused'}
+            {settings.enabled ? msg.active : msg.paused}
           </span>
           <button
             type="button"
             className="icon-btn"
             onClick={toggleTheme}
-            title={`Switch to ${theme === 'dark' ? 'Pastel Light' : 'Pastel Dark'} mode`}
+            title={msg.themeSwitchTitle(theme === 'dark' ? 'light' : 'dark')}
           >
             <ThemeToggleIcon theme={theme} />
           </button>
@@ -94,36 +109,29 @@ function PopupApp() {
           <OpticalCrestBrandmark size={26} monochrome={!settings.enabled} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 12.5 }}>
-              {settings.enabled
-                ? 'Intercepting Wallet Approvals'
-                : 'Interception Paused'}
+              {settings.enabled ? msg.heroIntercepting : msg.heroPaused}
             </div>
             <div className="muted" style={{ fontSize: 11 }}>
-              {settings.rpcEnrichmentEnabled || settings.abiLookupEnabled
-                ? [
-                    settings.rpcEnrichmentEnabled ? 'RPC enrichment' : null,
-                    settings.abiLookupEnabled ? 'Sourcify ABI' : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' + ') + ' enabled'
-                : '100% Local mode · 0 network calls'}
+              {activeNetFeatures
+                ? msg.heroOptInSubtitle(activeNetFeatures)
+                : msg.heroLocalSubtitle}
             </div>
           </div>
         </div>
         <span className="pill" style={{ fontSize: 10 }}>
           <LockPrivacyIcon size={11} />
-          {settings.rpcEnrichmentEnabled || settings.abiLookupEnabled ? 'Opt-in Net' : 'Local'}
+          {activeNetFeatures ? msg.optInNetPill : msg.localPill}
         </span>
       </section>
 
       <section className="card">
-        <h2 className="card-title">Protection &amp; Privacy Controls</h2>
+        <h2 className="card-title">{msg.controlsTitle}</h2>
 
         <label className="toggle-row">
           <span>
-            <strong style={{ fontSize: 12.5 }}>Intercept wallet requests</strong>
+            <strong style={{ fontSize: 12.5 }}>{msg.toggleInterceptTitle}</strong>
             <div className="muted" style={{ fontSize: 11 }}>
-              Inspect approvals &amp; signatures before MetaMask/Rabby opens
+              {msg.toggleInterceptDesc}
             </div>
           </span>
           <input
@@ -135,10 +143,9 @@ function PopupApp() {
 
         <label className="toggle-row">
           <span>
-            <strong style={{ fontSize: 12.5 }}>On-chain RPC enrichment</strong>
+            <strong style={{ fontSize: 12.5 }}>{msg.toggleRpcTitle}</strong>
             <div className="muted" style={{ fontSize: 11 }}>
-              Off = 100% local (0 network requests). On = reads allowance, token info &amp; proxy
-              slot.
+              {msg.toggleRpcDesc}
             </div>
           </span>
           <input
@@ -153,7 +160,7 @@ function PopupApp() {
         {settings.rpcEnrichmentEnabled && (
           <div style={{ marginTop: 8 }}>
             <div className="muted" style={{ fontSize: 11 }}>
-              Optional custom RPC URL (leave blank for publicnode defaults)
+              {msg.customRpcHint}
             </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
               <input
@@ -168,7 +175,7 @@ function PopupApp() {
                 className="btn-ghost"
                 onClick={() => updateSettings({ customRpcUrl: rpcDraft.trim() })}
               >
-                Save
+                {msg.saveBtn}
               </button>
             </div>
           </div>
@@ -176,9 +183,9 @@ function PopupApp() {
 
         <label className="toggle-row">
           <span>
-            <strong style={{ fontSize: 12.5 }}>Verified ABI lookup (Sourcify)</strong>
+            <strong style={{ fontSize: 12.5 }}>{msg.toggleSourcifyTitle}</strong>
             <div className="muted" style={{ fontSize: 11 }}>
-              Off = local ABIs only. On = queries Sourcify v2 (+ 4byte fallback) for unknown calls.
+              {msg.toggleSourcifyDesc}
             </div>
           </span>
           <input
@@ -192,7 +199,7 @@ function PopupApp() {
 
         {savedNotice && (
           <div style={{ color: 'var(--brand)', fontSize: 11, marginTop: 6, fontWeight: 600 }}>
-            Settings updated.
+            {msg.settingsUpdated}
           </div>
         )}
       </section>
@@ -200,23 +207,23 @@ function PopupApp() {
       <section className="card" style={{ marginBottom: 0 }}>
         <div className="card-title-row" style={{ marginBottom: 8 }}>
           <h2 className="card-title" style={{ margin: 0 }}>
-            Session History ({history.length})
+            {msg.historyTitle(history.length)}
           </h2>
           {history.length > 0 && (
             <button type="button" className="btn-ghost" onClick={clearHistory}>
-              Clear
+              {msg.clearBtn}
             </button>
           )}
         </div>
 
         {history.length === 0 ? (
           <p className="muted" style={{ margin: 0, fontSize: 11.5 }}>
-            No requests inspected in this browser session yet. Trigger a transaction or signature
-            on any dApp (or the local Attack Test Lab) to inspect it here.
+            {msg.historyEmpty}
           </p>
         ) : (
           history.slice(0, 8).map((item) => {
             const report = buildSanitizedReport(item.result, item.decision);
+            const localizedSummary = buildPlainEnglishSummary(item.result, locale);
             return (
               <div className="history-item" key={item.requestId}>
                 <div className="history-top">
@@ -230,7 +237,7 @@ function PopupApp() {
                     }}
                   >
                     <VerdictIcon verdict={item.verdict} size={12} />
-                    {item.verdict.replace('_', ' ')}
+                    {msg.verdictLabels[item.verdict]}
                   </span>
                   <span
                     className="pill"
@@ -244,7 +251,7 @@ function PopupApp() {
                   </span>
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>
-                  {item.headline}
+                  {localizedSummary}
                 </div>
                 <div className="muted mono" style={{ fontSize: 10.5, marginBottom: 6 }}>
                   {item.origin.replace(/^https?:\/\//, '')} · {item.method}
@@ -261,7 +268,7 @@ function PopupApp() {
                       )
                     }
                   >
-                    Export JSON
+                    {msg.exportJson}
                   </button>
                   <button
                     type="button"
@@ -274,7 +281,7 @@ function PopupApp() {
                       )
                     }
                   >
-                    Export HTML
+                    {msg.exportHtml}
                   </button>
                 </div>
               </div>

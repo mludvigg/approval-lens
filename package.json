@@ -1,6 +1,6 @@
 {
   "name": "approval-lens",
-  "version": "0.2.0",
+  "version": "0.2.5",
   "private": true,
   "type": "module",
   "description": "Local-first Chrome MV3 extension that inspects and explains Web3 approvals and signatures before you sign.",

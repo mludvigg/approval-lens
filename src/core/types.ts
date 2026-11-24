@@ -7,6 +7,8 @@ export type Verdict =
 
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
+export type Locale = 'en' | 'pt-BR' | 'es';
+
 export type EvidenceSource =
   | 'local_decoder'
   | 'local_reputation'
@@ -144,6 +146,7 @@ export interface ExtensionSettings {
   rpcEnrichmentEnabled: boolean;
   abiLookupEnabled: boolean;
   customRpcUrl: string;
+  locale?: Locale;
 }
 
 export type UserDecision = 'ALLOW' | 'BLOCK';

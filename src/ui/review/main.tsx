@@ -6,134 +6,31 @@ import {
   formatTokenAmount,
   sortFindingsBySeverity,
 } from '../../core/format';
+import {
+  getLocalizedImpactHeadline,
+  getLocalizedRequestHeader,
+  getMessages,
+  localizeFinding,
+  localizeLimitation,
+} from '../../core/i18n';
 import { checkMaliciousAddress, lookupKnownContract } from '../../core/reputation';
 import { buildSanitizedReport, renderHtmlReport } from '../../core/report';
-import type { DecodedAction, InspectionResult, Severity, UserDecision } from '../../core/types';
+import type { InspectionResult, UserDecision } from '../../core/types';
 import {
   CheckIcon,
   ChevronIcon,
   CopyIcon,
+  LocaleSwitcher,
   LockPrivacyIcon,
   OpticalCrestBrandmark,
   OpticalCrestCombo,
   SeverityIcon,
   ThemeToggleIcon,
+  useLocale,
   useTheme,
   VerdictIcon,
 } from '../brand';
 import '../styles.css';
-
-const SEVERITY_LABELS: Record<Severity, string> = {
-  CRITICAL: 'Critical',
-  HIGH: 'High risk',
-  MEDIUM: 'Review',
-  LOW: 'Low risk',
-  INFO: 'Verified local',
-};
-
-function getHumanRequestHeader(
-  decoded: DecodedAction,
-  originHost: string,
-): { title: string; subtitle: string } {
-  switch (decoded.kind) {
-    case 'ERC20_APPROVE':
-    case 'ERC20_INCREASE_ALLOWANCE':
-      return {
-        title: 'Spending cap request',
-        subtitle: `${originHost} wants permission to withdraw your tokens`,
-      };
-    case 'ERC20_DECREASE_ALLOWANCE':
-      return {
-        title: 'Update spending cap',
-        subtitle: `${originHost} is reducing an existing token allowance`,
-      };
-    case 'ERC20_TRANSFER':
-    case 'ERC20_TRANSFER_FROM':
-    case 'NATIVE_TRANSFER':
-      return {
-        title: 'Asset transfer request',
-        subtitle: `${originHost} is requesting a direct transfer from your wallet`,
-      };
-    case 'NFT_SET_APPROVAL_FOR_ALL':
-      return {
-        title: 'NFT collection access request',
-        subtitle: `${originHost} wants operator control over every NFT in this collection`,
-      };
-    case 'NFT_TRANSFER':
-      return {
-        title: 'NFT transfer request',
-        subtitle: `${originHost} wants to transfer a specific NFT`,
-      };
-    case 'EIP2612_PERMIT':
-    case 'PERMIT2_SINGLE':
-    case 'PERMIT2_BATCH':
-    case 'PERMIT2_TRANSFER_FROM':
-      return {
-        title: 'Gasless spending permit',
-        subtitle: `${originHost} is requesting an off-chain token spending signature`,
-      };
-    case 'SEAPORT_ORDER':
-      return {
-        title: 'Marketplace listing signature',
-        subtitle: `${originHost} is requesting an off-chain Seaport order authorizing asset transfers`,
-      };
-    case 'BLUR_ORDER':
-      return {
-        title:
-          decoded.functionName === 'Blur.BulkOrderRoot'
-            ? 'Bulk marketplace root signature'
-            : 'Marketplace listing signature',
-        subtitle: `${originHost} is requesting an off-chain Blur NFT order signature`,
-      };
-    case 'SOURCIFY_DECODED':
-      return {
-        title: 'Verified contract interaction',
-        subtitle: `${originHost} is calling ${decoded.functionName ?? 'a verified function'} (decoded via Sourcify)`,
-      };
-    case 'MULTICALL':
-      return {
-        title: 'Bundled batch request',
-        subtitle: `${originHost} is bundling ${decoded.subActions?.length ?? 'multiple'} operations in one call`,
-      };
-    case 'RAW_ETH_SIGN':
-      return {
-        title: 'Blind signature request',
-        subtitle: `${originHost} is requesting an unformatted 32-byte hash signature`,
-      };
-    case 'PERSONAL_SIGN':
-      return {
-        title: 'Message signature request',
-        subtitle: `${originHost} is requesting a text signature to verify ownership`,
-      };
-    case 'TYPED_DATA_GENERIC':
-      return {
-        title: 'Structured data signature',
-        subtitle: `${originHost} is requesting an EIP-712 signature with a custom schema`,
-      };
-    case 'UNKNOWN_CALLDATA':
-    default:
-      return {
-        title: 'Unverified contract request',
-        subtitle: `${originHost} is calling a contract function that could not be decoded locally`,
-      };
-  }
-}
-
-function getImpactBannerHeadline(result: InspectionResult, riskCount: number): string {
-  switch (result.verdict) {
-    case 'KNOWN_MALICIOUS':
-      return `${riskCount} ${riskCount === 1 ? 'risk' : 'risks'} detected · Known malicious indicator`;
-    case 'HIGH_RISK':
-      return `${riskCount} ${riskCount === 1 ? 'risk' : 'risks'} detected · High-risk permission`;
-    case 'REVIEW_NEEDED':
-      return `${riskCount} ${riskCount === 1 ? 'warning' : 'warnings'} detected · Review carefully`;
-    case 'UNANALYZED':
-      return 'Unverified contract call · Cannot confirm intent';
-    case 'UNDERSTOOD':
-    default:
-      return 'Understood · No known risk flags matched';
-  }
-}
 
 function downloadFile(filename: string, content: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
@@ -169,7 +66,7 @@ function SplitAddress({
   );
 }
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, title }: { text: string; title: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -184,7 +81,7 @@ function CopyButton({ text }: { text: string }) {
       type="button"
       className="copy-inline-btn"
       onClick={handleCopy}
-      title={`Copy ${text}`}
+      title={title}
     >
       {copied ? <CheckIcon size={11} /> : <CopyIcon size={11} />}
     </button>
@@ -193,6 +90,9 @@ function CopyButton({ text }: { text: string }) {
 
 function ReviewApp() {
   const [theme, toggleTheme] = useTheme();
+  const [locale, setLocale] = useLocale();
+  const msg = getMessages(locale);
+
   const [result, setResult] = useState<InspectionResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -231,9 +131,12 @@ function ReviewApp() {
         <div className="inspection-sheet">
           <header className="header">
             <OpticalCrestCombo markSize={22} wordScale={0.74} />
+            <div className="header-controls">
+              <LocaleSwitcher locale={locale} onChange={setLocale} />
+            </div>
           </header>
           <p className="muted" style={{ margin: 0 }}>
-            Inspecting wallet request locally…
+            {msg.loadingInspection}
           </p>
         </div>
       </main>
@@ -246,19 +149,22 @@ function ReviewApp() {
         <div className="inspection-sheet">
           <header className="header">
             <OpticalCrestCombo markSize={22} wordScale={0.74} />
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={toggleTheme}
-              title="Switch Pastel Light / Dark theme"
-            >
-              <ThemeToggleIcon theme={theme} />
-            </button>
+            <div className="header-controls">
+              <LocaleSwitcher locale={locale} onChange={setLocale} />
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={toggleTheme}
+                title={msg.themeSwitchTitle(theme === 'dark' ? 'light' : 'dark')}
+              >
+                <ThemeToggleIcon theme={theme} />
+              </button>
+            </div>
           </header>
           <div className="card">
-            <h1 style={{ fontSize: 15, marginTop: 0 }}>No active inspection found</h1>
+            <h1 style={{ fontSize: 15, marginTop: 0 }}>{msg.expiredTitle}</h1>
             <p className="muted" style={{ marginBottom: 0 }}>
-              This inspection has already completed or expired (fail-closed protection).
+              {msg.expiredDesc}
             </p>
           </div>
         </div>
@@ -275,9 +181,9 @@ function ReviewApp() {
     sortedFindings.some((f) => f.severity === 'CRITICAL');
 
   const originHost = request.origin.replace(/^https?:\/\//, '');
-  const reqHeader = getHumanRequestHeader(decoded, originHost);
-  const impactHeadline = getImpactBannerHeadline(result, riskCount);
-  const plainEnglishSummary = buildPlainEnglishSummary(result);
+  const reqHeader = getLocalizedRequestHeader(decoded, originHost, locale);
+  const impactHeadline = getLocalizedImpactHeadline(result, riskCount, locale);
+  const plainEnglishSummary = buildPlainEnglishSummary(result, locale);
 
   const humanPermission = formatTokenAmount(
     decoded.amountRaw,
@@ -285,8 +191,9 @@ function ReviewApp() {
     onChain.tokenSymbol,
     decoded.isUnlimited,
     false,
+    locale,
   );
-  const formattedExpiry = decoded.deadline ? formatDeadline(decoded.deadline) : null;
+  const formattedExpiry = decoded.deadline ? formatDeadline(decoded.deadline, locale) : null;
 
   const counterpartyAddr = decoded.spender ?? decoded.recipient;
   const badCounterparty = checkMaliciousAddress(counterpartyAddr);
@@ -321,26 +228,26 @@ function ReviewApp() {
   const renderForensicKeyValueGrid = () => (
     <>
       <div className="kv-grid" style={{ marginBottom: 10 }}>
-        <span className="kv-label">Verified origin</span>
+        <span className="kv-label">{msg.kvVerifiedOrigin}</span>
         <span className="kv-val mono">{request.origin}</span>
 
         {request.topLevelOrigin && (
           <>
-            <span className="kv-label">Top-level page</span>
+            <span className="kv-label">{msg.kvTopLevelPage}</span>
             <span className="kv-val mono">{request.topLevelOrigin}</span>
           </>
         )}
 
-        <span className="kv-label">RPC method</span>
+        <span className="kv-label">{msg.kvRpcMethod}</span>
         <span className="kv-val mono">{request.method}</span>
 
-        <span className="kv-label">Decoded ABI</span>
+        <span className="kv-label">{msg.kvDecodedAbi}</span>
         <span className="kv-val mono">{decoded.functionName ?? decoded.kind}</span>
 
         {decoded.targetContract && (
           <>
             <span className="kv-label">
-              {sameTargetAndToken ? 'Token & target' : 'Target contract'}
+              {sameTargetAndToken ? msg.kvTokenAndTarget : msg.kvTargetContract}
             </span>
             <span className="kv-val mono">{decoded.targetContract}</span>
           </>
@@ -348,49 +255,49 @@ function ReviewApp() {
 
         {decoded.tokenAddress && !sameTargetAndToken && (
           <>
-            <span className="kv-label">Token contract</span>
+            <span className="kv-label">{msg.kvTokenContract}</span>
             <span className="kv-val mono">{decoded.tokenAddress}</span>
           </>
         )}
 
         {decoded.spender && (
           <>
-            <span className="kv-label">Spender address</span>
+            <span className="kv-label">{msg.kvSpenderAddress}</span>
             <span className="kv-val mono">{decoded.spender}</span>
           </>
         )}
 
         {decoded.recipient && (
           <>
-            <span className="kv-label">Recipient address</span>
+            <span className="kv-label">{msg.kvRecipientAddress}</span>
             <span className="kv-val mono">{decoded.recipient}</span>
           </>
         )}
 
         {decoded.amountRaw !== undefined && (
           <>
-            <span className="kv-label">Raw token units</span>
+            <span className="kv-label">{msg.kvRawUnits}</span>
             <span className="kv-val mono">{decoded.amountRaw}</span>
           </>
         )}
 
         {decoded.deadline && (
           <>
-            <span className="kv-label">Raw deadline</span>
+            <span className="kv-label">{msg.kvRawDeadline}</span>
             <span className="kv-val mono">
-              {decoded.deadline} ({formatDeadline(decoded.deadline)})
+              {decoded.deadline} ({formatDeadline(decoded.deadline, locale)})
             </span>
           </>
         )}
 
-        <span className="kv-label">Frozen SHA-256</span>
+        <span className="kv-label">{msg.kvFrozenSha256}</span>
         <span className="kv-val mono">{request.payloadHash}</span>
       </div>
 
       {decoded.rawPreview && (
         <div style={{ marginBottom: 10 }}>
           <div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>
-            Payload preview
+            {msg.payloadPreview}
           </div>
           <code>{decoded.rawPreview}</code>
         </div>
@@ -398,14 +305,14 @@ function ReviewApp() {
 
       <div className="section-header-row" style={{ marginTop: 8 }}>
         <span className="section-eyebrow">
-          Network &amp; privacy audit ({networkLog.length})
+          {msg.networkAuditHeading(networkLog.length)}
         </span>
         <div style={{ display: 'flex', gap: 6 }}>
           <button type="button" className="btn-ghost" onClick={handleExportJson}>
-            Export JSON
+            {msg.exportJson}
           </button>
           <button type="button" className="btn-ghost" onClick={handleExportHtml}>
-            Export HTML
+            {msg.exportHtml}
           </button>
         </div>
       </div>
@@ -427,40 +334,44 @@ function ReviewApp() {
         }}
       >
         <div className="section-eyebrow" style={{ marginBottom: 4 }}>
-          What Was NOT Analyzed
+          {msg.notAnalyzedHeading}
         </div>
         <ul className="list-plain">
           {limitations.map((item, idx) => (
-            <li key={idx}>{item}</li>
+            <li key={idx}>{localizeLimitation(item, locale)}</li>
           ))}
         </ul>
       </div>
     </>
   );
 
+  const privacyBadgeLabel =
+    onChain.rpcEnabled && decoded.abiSource
+      ? msg.rpcAndAbiPill
+      : onChain.rpcEnabled
+        ? msg.rpcEnrichedPill
+        : decoded.abiSource
+          ? msg.sourcifyLookupPill
+          : msg.localZeroRpcPill;
+
   return (
     <main className="app-shell">
       <div className="inspection-sheet">
-        {/* Top Bar with Optical Crest Combination Mark */}
+        {/* Top Bar with Optical Crest Combination Mark & Live EN / PT / ES Switcher */}
         <header className="header">
-          <OpticalCrestCombo markSize={22} wordScale={0.74} />
+          <OpticalCrestCombo markSize={22} wordScale={0.72} />
           <div className="header-controls">
-            <span className="pill pill-brand" title="Local static analysis by default">
+            <LocaleSwitcher locale={locale} onChange={setLocale} />
+            <span className="pill pill-brand" title={msg.heroLocalSubtitle}>
               <LockPrivacyIcon size={11} />
-              {onChain.rpcEnabled && decoded.abiSource
-                ? 'RPC + ABI Lookup'
-                : onChain.rpcEnabled
-                  ? 'RPC Enriched'
-                  : decoded.abiSource
-                    ? 'Sourcify Lookup'
-                    : 'Local · 0 RPC'}
+              {privacyBadgeLabel}
             </span>
             <span className="pill">{request.walletName ?? 'EIP-1193'}</span>
             <button
               type="button"
               className="icon-btn"
               onClick={toggleTheme}
-              title={`Switch to ${theme === 'dark' ? 'Pastel Light' : 'Pastel Dark'} mode`}
+              title={msg.themeSwitchTitle(theme === 'dark' ? 'light' : 'dark')}
             >
               <ThemeToggleIcon theme={theme} />
             </button>
@@ -513,11 +424,11 @@ function ReviewApp() {
                 {counterpartyAddr && (
                   <div className="detail-row">
                     <span className="detail-label">
-                      {decoded.spender ? 'Spender' : 'Recipient'}
+                      {decoded.spender ? msg.spenderLabel : msg.recipientLabel}
                     </span>
                     <span className="detail-val">
                       {badCounterparty ? (
-                        <span className="inline-flag">Malicious drainer</span>
+                        <span className="inline-flag">{msg.maliciousDrainerFlag}</span>
                       ) : knownCounterparty ? (
                         <span>{knownCounterparty.name.split(' (')[0]}</span>
                       ) : null}
@@ -525,7 +436,10 @@ function ReviewApp() {
                         address={counterpartyAddr}
                         danger={Boolean(badCounterparty)}
                       />
-                      <CopyButton text={counterpartyAddr} />
+                      <CopyButton
+                        text={counterpartyAddr}
+                        title={msg.copyTitle(counterpartyAddr)}
+                      />
                     </span>
                   </div>
                 )}
@@ -533,36 +447,38 @@ function ReviewApp() {
                 {contractAddr && (
                   <div className="detail-row">
                     <span className="detail-label">
-                      {onChain.tokenSymbol ? 'Token contract' : 'Interacting with'}
+                      {onChain.tokenSymbol ? msg.tokenContractLabel : msg.interactingWithLabel}
                     </span>
                     <span className="detail-val">
                       {knownContract && <OpticalCrestBrandmark size={14} />}
                       {knownContract && <span>{knownContract.name.split(' (')[0]}</span>}
                       <SplitAddress address={contractAddr} />
-                      <CopyButton text={contractAddr} />
+                      <CopyButton text={contractAddr} title={msg.copyTitle(contractAddr)} />
                     </span>
                   </div>
                 )}
 
                 {formattedExpiry && (
                   <div className="detail-row">
-                    <span className="detail-label">Deadline / Expiry</span>
+                    <span className="detail-label">{msg.deadlineLabel}</span>
                     <span className="detail-val">{formattedExpiry}</span>
                   </div>
                 )}
 
                 {decoded.seaportDetails && (
                   <div className="detail-row">
-                    <span className="detail-label">Order balance</span>
+                    <span className="detail-label">{msg.orderBalanceLabel}</span>
                     <span className="detail-val">
                       {decoded.seaportDetails.zeroConsiderationToOfferer ? (
                         <span className="inline-flag">
-                          You give {decoded.seaportDetails.offerCount} · Receive 0
+                          {msg.seaportZeroBadge(decoded.seaportDetails.offerCount)}
                         </span>
                       ) : (
                         <span>
-                          Offer {decoded.seaportDetails.offerCount} · Receive{' '}
-                          {decoded.seaportDetails.offererConsiderationCount}
+                          {msg.seaportPaidBadge(
+                            decoded.seaportDetails.offerCount,
+                            decoded.seaportDetails.offererConsiderationCount,
+                          )}
                         </span>
                       )}
                     </span>
@@ -576,7 +492,7 @@ function ReviewApp() {
               <section className="findings-section">
                 <div className="section-header-row">
                   <h2 className="section-eyebrow">
-                    Decoded parameters ({decoded.decodedArgs.length})
+                    {msg.decodedParamsHeading(decoded.decodedArgs.length)}
                   </h2>
                 </div>
                 {decoded.decodedArgs.map((arg, idx) => (
@@ -596,7 +512,7 @@ function ReviewApp() {
               <section className="findings-section">
                 <div className="section-header-row">
                   <h2 className="section-eyebrow">
-                    Nested operations ({decoded.subActions.length})
+                    {msg.nestedOpsHeading(decoded.subActions.length)}
                   </h2>
                 </div>
                 {decoded.subActions.map((sub, idx) => (
@@ -611,7 +527,7 @@ function ReviewApp() {
             <section className="findings-section">
               <div className="section-header-row">
                 <h2 className="section-eyebrow">
-                  Security evidence ({sortedFindings.length})
+                  {msg.securityEvidenceHeading(sortedFindings.length)}
                 </h2>
                 <button
                   type="button"
@@ -619,32 +535,32 @@ function ReviewApp() {
                   onClick={() => setShowTechDrawer((prev) => !prev)}
                   aria-expanded={showTechDrawer}
                 >
-                  <span>
-                    {showTechDrawer ? 'Hide technical proof' : 'Technical proof & scope'}
-                  </span>
+                  <span>{showTechDrawer ? msg.hideTechProof : msg.showTechProof}</span>
                   <ChevronIcon open={showTechDrawer} size={13} />
                 </button>
               </div>
 
               {sortedFindings.length === 0 ? (
                 <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                  No local risk rules matched. Always verify the website domain and recipient
-                  before signing.
+                  {msg.noRiskRulesMatched}
                 </p>
               ) : (
                 <div className="findings-stack">
-                  {sortedFindings.map((f, i) => (
-                    <div className={`finding-row finding-${f.severity}`} key={`${f.id}-${i}`}>
-                      <div className="finding-head">
-                        <div className="finding-title-wrap">
-                          <SeverityIcon severity={f.severity} size={15} />
-                          <span className="finding-title">{f.title}</span>
+                  {sortedFindings.map((f, i) => {
+                    const locFinding = localizeFinding(f, locale);
+                    return (
+                      <div className={`finding-row finding-${f.severity}`} key={`${f.id}-${i}`}>
+                        <div className="finding-head">
+                          <div className="finding-title-wrap">
+                            <SeverityIcon severity={f.severity} size={15} />
+                            <span className="finding-title">{locFinding.title}</span>
+                          </div>
+                          <span className="sev-label">{msg.severityLabels[f.severity]}</span>
                         </div>
-                        <span className="sev-label">{SEVERITY_LABELS[f.severity]}</span>
+                        <p className="finding-desc">{locFinding.explanation}</p>
                       </div>
-                      <p className="finding-desc">{f.explanation}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -658,13 +574,16 @@ function ReviewApp() {
                   </div>
                 </div>
                 {!showTechDrawer && (
-                  <div className="compact-scope-line" title={limitations.join(' ')}>
-                    <span>⊘ No EVM simulation</span>
+                  <div
+                    className="compact-scope-line"
+                    title={limitations.map((l) => localizeLimitation(l, locale)).join(' ')}
+                  >
+                    <span>{msg.scopeNoSim}</span>
                     <span>·</span>
-                    <span>⊘ Never 100% safe</span>
+                    <span>{msg.scopeNeverSafe}</span>
                     <span>·</span>
                     <span>
-                      {onChain.rpcEnabled ? '🌐 Opt-in RPC active' : '🔒 0 network calls'}
+                      {onChain.rpcEnabled ? msg.scopeOptInRpc : msg.scopeZeroCalls}
                     </span>
                   </div>
                 )}
@@ -676,9 +595,9 @@ function ReviewApp() {
           <div className="workspace-col expanded-only">
             <section className="forensic-ledger">
               <div className="forensic-header">
-                <h2 className="forensic-title">Forensic Evidence &amp; Scope Ledger</h2>
+                <h2 className="forensic-title">{msg.forensicHeading}</h2>
                 <span className="mono" style={{ fontSize: 11, color: 'var(--brand)' }}>
-                  SHA-256 Frozen
+                  {msg.sha256Frozen}
                 </span>
               </div>
               {renderForensicKeyValueGrid()}
@@ -695,10 +614,7 @@ function ReviewApp() {
                 checked={acknowledgedDanger}
                 onChange={(e) => setAcknowledgedDanger(e.target.checked)}
               />
-              <span>
-                I understand this request triggered a critical warning and may drain my assets
-                if signed.
-              </span>
+              <span>{msg.dangerAckCheckbox}</span>
             </label>
           )}
           <div className="btn-row">
@@ -708,7 +624,7 @@ function ReviewApp() {
               disabled={submitting}
               onClick={() => submitDecision('BLOCK')}
             >
-              {isUnderstood ? 'Block request' : 'Block request (Recommended)'}
+              {isUnderstood ? msg.blockRequestCalm : msg.blockRequestRecommended}
             </button>
             <button
               type="button"
@@ -716,7 +632,7 @@ function ReviewApp() {
               disabled={submitting || (requiresDangerAck && !acknowledgedDanger)}
               onClick={() => submitDecision('ALLOW')}
             >
-              Proceed to wallet
+              {msg.proceedToWallet}
             </button>
           </div>
         </footer>

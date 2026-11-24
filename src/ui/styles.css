@@ -931,3 +931,40 @@ button:disabled {
   margin-bottom: 6px;
   font-size: var(--text-meta);
 }
+
+/* Segmented EN / PT / ES Language Switcher */
+.locale-seg {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  gap: 1px;
+}
+
+.locale-seg-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1;
+  transition:
+    background 0.14s var(--ease-out),
+    color 0.14s var(--ease-out);
+}
+
+.locale-seg-btn:hover {
+  color: var(--text);
+}
+
+.locale-seg-btn.active {
+  background: var(--brand-soft);
+  color: var(--brand);
+}

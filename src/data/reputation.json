@@ -1,0 +1,60 @@
+{
+  "version": "2026.11.21-local-v1",
+  "description": "Local versioned threat intelligence & known-contract labels bundled with Approval Lens. Contains curated demo/test indicators and canonical protocol addresses only (no unlicensed third-party feeds).",
+  "maliciousDomains": [
+    {
+      "domain": "claim-airdrop-bonus.example",
+      "label": "Simulated Phishing Drainer (Test Lab)",
+      "reason": "Demo phishing indicator included for Approval Lens verification tests."
+    },
+    {
+      "domain": "uniswap-v4-claim.example",
+      "label": "Simulated Impersonation Domain (Test Lab)",
+      "reason": "Demo impersonation domain included for Approval Lens verification tests."
+    }
+  ],
+  "maliciousAddresses": [
+    {
+      "address": "0x000000000000000000000000000000000000dead",
+      "label": "Burn Address (0x...dEaD)",
+      "reason": "Dead / burn address — assets or approvals sent here are typically unrecoverable or test traps."
+    },
+    {
+      "address": "0xbad0000000000000000000000000000000000bad",
+      "label": "Simulated Wallet Drainer Spender (Test Lab)",
+      "reason": "Controlled malicious spender address used by Approval Lens adversarial tests and local Attack Test Lab."
+    },
+    {
+      "address": "0xdeaf00000000000000000000000000000000cafe",
+      "label": "Simulated NFT Operator Drainer (Test Lab)",
+      "reason": "Controlled malicious NFT operator address used by Approval Lens adversarial tests."
+    }
+  ],
+  "knownContracts": [
+    {
+      "address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "name": "Uniswap Permit2",
+      "note": "Canonical Uniswap Permit2 contract. Legitimate protocol, but permits signed for Permit2 grant spending power to whichever 'spender' is inside the signed message."
+    },
+    {
+      "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "name": "USDC (Ethereum Mainnet)",
+      "note": "Circle USD Coin (6 decimals)."
+    },
+    {
+      "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "name": "USDT (Ethereum Mainnet)",
+      "note": "Tether USD (6 decimals)."
+    },
+    {
+      "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "name": "WETH (Ethereum Mainnet)",
+      "note": "Wrapped Ether (18 decimals)."
+    },
+    {
+      "address": "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
+      "name": "USDC (Sepolia Testnet)",
+      "note": "Circle Sepolia Testnet USDC (6 decimals)."
+    }
+  ]
+}

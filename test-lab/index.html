@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Approval Lens — Local Attack Test Lab</title>
+    <style>
+      :root {
+        --bg: #090e1a;
+        --card: #111827;
+        --border: #243047;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        max-width: 960px;
+        margin-inline: auto;
+        padding: 28px 20px 60px;
+      }
+      h1 { margin: 0 0 6px; font-size: 24px; }
+      .sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 20px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 14px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #1e293b;
+        color: var(--accent);
+        margin-bottom: 6px;
+      }
+      .badge.crit { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+      .badge.high { background: rgba(249, 115, 22, 0.2); color: #fdba74; }
+      .badge.unk { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; }
+      .card h3 { margin: 0 0 6px; font-size: 15px; }
+      .card p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+      button {
+        cursor: pointer;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #1e293b;
+        color: #f8fafc;
+        font-weight: 600;
+        padding: 9px 12px;
+        font-size: 13px;
+      }
+      button:hover { background: #334155; }
+      button.primary { background: #0284c7; border-color: #0284c7; }
+      button.primary:hover { background: #0369a1; }
+      #log {
+        margin-top: 22px;
+        background: #060a14;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        min-height: 110px;
+        white-space: pre-wrap;
+        color: #cbd5e1;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Approval Lens — Local Attack Test Lab</h1>
+    <p class="sub">
+      Safe interactive workbench for testing Approval Lens with your real MetaMask or Rabby wallet
+      (recommended: switch wallet to <strong>Sepolia testnet</strong> — never sign real mainnet approvals here).
+    </p>
+
+    <div class="bar">
+      <div>
+        <div><strong>Wallet:</strong> <span id="walletStatus">Not connected</span></div>
+        <div style="font-size: 12px; color: var(--muted)">
+          Chain ID: <span id="chainStatus">—</span> | Account: <span id="accountStatus">—</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <select id="walletSelect" style="padding: 8px; border-radius: 8px; background: #090e1a; color: #e2e8f0; border: 1px solid #334155;">
+          <option value="default">Auto-detect (window.ethereum)</option>
+        </select>
+        <button class="primary" id="connectBtn">Connect Wallet</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div>
+          <span class="badge">UNDERSTOOD</span>
+          <h3>1. Legitimate Capped ERC-20 Approve</h3>
+          <p>Approves 100 Sepolia USDC (exact amount) to a neutral spender. Should show UNDERSTOOD (no known flags).</p>
+        </div>
+        <button onclick="runScenario('cappedApprove')">Trigger Capped Approve</button>
+      </div>
+
+      <div class="card">
+        <div>
+          <span class="badge crit">KNOWN_MALICIOUS</span>
+          <h3>2. Unlimited Approve to Known Drainer</h3>
+          <p>Requests MAX_UINT256 ERC-20 approval to our controlled malicious spender <code>0xbad0…0bad</code>.</p>
+        </div>
+        <button onclick="runScenario('maliciousUnlimited')">Trigger Unlimited Drainer</button>
+      </div>
+
+      <div class="card">
+        <div>
+          <span class="badge crit">KNOWN_MALICIOUS</span>
+          <h3>3. NFT setApprovalForAll Drainer</h3>
+          <p>Requests full NFT collection transfer rights for listed drainer operator <code>0xdeaf…cafe</code>.</p>
+        </div>
+        <button onclick="runScenario('nftApproveAll')">Trigger NFT setApprovalForAll</button>
+      </div>
+
+      <div class="card">
+        <div>
+          <span class="badge high">HIGH_RISK</span>
+          <h3>4. Gasless EIP-2612 Permit (Chain Mismatch)</h3>
+          <p>Off-chain signature granting unlimited USDC on Mainnet (chainId 1) even if you are on Sepolia.</p>
+        </div>
+        <button onclick="runScenario('eip2612Permit')">Trigger Gasless Permit</button>
+      </div>
+
+      <div class="card">
+        <div>
+          <span class="badge crit">KNOWN_MALICIOUS</span>
+          <h3>5. Uniswap Permit2 Unlimited Signature</h3>
+          <p>Gasless Permit2 <code>PermitSingle</code> granting unlimited spending to <code>0xbad0…0bad</code>.</p>
+        </div>
+        <button onclick="runScenario('permit2')">Trigger Permit2 Signature</button>
+      </div>
+
+      <div class="card">
+        <div>
+          <span class="badge high">HIGH_RISK</span>
+          <h3>6. Multicall Hidden Unlimited Approve</h3>
+          <p>Bundles a tiny transfer together with a hidden unlimited <code>approve</code> inside <code>multicall(bytes[])</code>.</p>
+        </div>
+        <button onclick="runScenario('multicallHidden')">Trigger Hidden Multicall</button>
+      </div>
+
+      <div class="card">
+        <div>
+          <span class="badge unk">UNANALYZED</span>
+          <h3>7. Unknown / Opaque Contract Calldata</h3>
+          <p>Sends unrecognized selector <code>0xdeadbeef</code>. Proves Approval Lens refuses to guess and marks UNANALYZED.</p>
+        </div>
+        <button onclick="runScenario('unknownCalldata')">Trigger Opaque Calldata</button>
+      </div>
+
+      <div class="card">
+        <div>
+          <span class="badge crit">CRITICAL</span>
+          <h3>8. Raw eth_sign Blind Signing Trap</h3>
+          <p>Attempts deprecated raw 32-byte hash signing via <code>eth_sign</code>.</p>
+        </div>
+        <button onclick="runScenario('rawEthSign')">Trigger Raw eth_sign</button>
+      </div>
+
+      <div class="card">
+        <div>
+          <span class="badge high">TOCTOU DEFENSE</span>
+          <h3>9. Bait-and-Switch Mutation Attack</h3>
+          <p>Calls <code>approve</code> with 100 USDC, then immediately mutates the JS object to MAX_UINT256 after calling <code>request()</code>.</p>
+        </div>
+        <button onclick="runScenario('toctouMutation')">Trigger Bait-and-Switch</button>
+      </div>
+    </div>
+
+    <div id="log">[Test Lab] Ready. Load Approval Lens in chrome://extensions, then click Connect Wallet.</div>
+
+    <script>
+      const SEPOLIA_USDC = '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238';
+      const BENIGN_SPENDER = '0x2222222222222222222222222222222222222222';
+      const MALICIOUS_SPENDER = '0xbad0000000000000000000000000000000000bad';
+      const MALICIOUS_NFT_OP = '0xdeaf00000000000000000000000000000000cafe';
+      const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+
+      const eip6963Providers = new Map();
+      let activeProvider = null;
+      let activeAccount = null;
+
+      function log(msg) {
+        const el = document.getElementById('log');
+        const ts = new Date().toLocaleTimeString();
+        el.textContent = `[${ts}] ${msg}\n` + el.textContent;
+      }
+
+      function pad32(hexNoPrefix) {
+        return hexNoPrefix.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+      }
+
+      function encodeApprove(spender, amountHex) {
+        return '0x095ea7b3' + pad32(spender) + pad32(amountHex);
+      }
+
+      function encodeTransfer(to, amountHex) {
+        return '0xa9059cbb' + pad32(to) + pad32(amountHex);
+      }
+
+      function encodeSetApprovalForAll(operator, approved) {
+        return '0xa22cb465' + pad32(operator) + pad32(approved ? '1' : '0');
+      }
+
+      function encodeMulticall(calls) {
+        // multicall(bytes[]) selector = 0xac9650d8
+        const count = calls.length;
+        let head = pad32('20') + pad32(count.toString(16));
+        const encodedBytes = calls.map((hex) => {
+          const clean = hex.replace(/^0x/, '');
+          const byteLen = clean.length / 2;
+          const padded = clean.padEnd(Math.ceil(clean.length / 64) * 64, '0');
+          return pad32(byteLen.toString(16)) + padded;
+        });
+        let offset = count * 32;
+        let offsets = '';
+        for (const item of encodedBytes) {
+          offsets += pad32(offset.toString(16));
+          offset += item.length / 2;
+        }
+        return '0xac9650d8' + head + offsets + encodedBytes.join('');
+      }
+
+      // Discover EIP-6963 wallets (MetaMask, Rabby, etc.)
+      window.addEventListener('eip6963:announceProvider', (event) => {
+        const { info, provider } = event.detail;
+        if (!eip6963Providers.has(info.uuid)) {
+          eip6963Providers.set(info.uuid, { info, provider });
+          const select = document.getElementById('walletSelect');
+          const opt = document.createElement('option');
+          opt.value = info.uuid;
+          opt.textContent = `${info.name} (EIP-6963)`;
+          select.appendChild(opt);
+          log(`Discovered EIP-6963 wallet: ${info.name}`);
+        }
+      });
+      window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+      document.getElementById('connectBtn').addEventListener('click', async () => {
+        const selected = document.getElementById('walletSelect').value;
+        if (selected !== 'default' && eip6963Providers.has(selected)) {
+          const entry = eip6963Providers.get(selected);
+          activeProvider = entry.provider;
+          document.getElementById('walletStatus').textContent = entry.info.name;
+        } else if (window.ethereum) {
+          activeProvider = window.ethereum;
+          document.getElementById('walletStatus').textContent = window.ethereum.isRabby
+            ? 'Rabby (window.ethereum)'
+            : window.ethereum.isMetaMask
+              ? 'MetaMask (window.ethereum)'
+              : 'window.ethereum';
+        } else {
+          log('ERROR: No EIP-1193/EIP-6963 wallet found in Chrome.');
+          return;
+        }
+
+        try {
+          const accounts = await activeProvider.request({ method: 'eth_requestAccounts' });
+          const chainId = await activeProvider.request({ method: 'eth_chainId' });
+          activeAccount = accounts[0];
+          document.getElementById('accountStatus').textContent = activeAccount;
+          document.getElementById('chainStatus').textContent = `${chainId} (${parseInt(chainId, 16)})`;
+          log(`Connected ${activeAccount} on chain ${chainId}`);
+        } catch (err) {
+          log(`Connection error: ${err.message || err}`);
+        }
+      });
+
+      window.runScenario = async function (name) {
+        if (!activeProvider || !activeAccount) {
+          log('Please click Connect Wallet first.');
+          return;
+        }
+
+        const MAX_UINT256 = 'f'.repeat(64);
+        const ONE_HUNDRED_USDC = (100_000_000n).toString(16);
+
+        try {
+          let result;
+          if (name === 'cappedApprove') {
+            result = await activeProvider.request({
+              method: 'eth_sendTransaction',
+              params: [{
+                from: activeAccount,
+                to: SEPOLIA_USDC,
+                data: encodeApprove(BENIGN_SPENDER, ONE_HUNDRED_USDC),
+              }],
+            });
+          } else if (name === 'maliciousUnlimited') {
+            result = await activeProvider.request({
+              method: 'eth_sendTransaction',
+              params: [{
+                from: activeAccount,
+                to: SEPOLIA_USDC,
+                data: encodeApprove(MALICIOUS_SPENDER, MAX_UINT256),
+              }],
+            });
+          } else if (name === 'nftApproveAll') {
+            result = await activeProvider.request({
+              method: 'eth_sendTransaction',
+              params: [{
+                from: activeAccount,
+                to: '0x3333333333333333333333333333333333333333',
+                data: encodeSetApprovalForAll(MALICIOUS_NFT_OP, true),
+              }],
+            });
+          } else if (name === 'eip2612Permit') {
+            const payload = {
+              types: {
+                EIP712Domain: [
+                  { name: 'name', type: 'string' },
+                  { name: 'version', type: 'string' },
+                  { name: 'chainId', type: 'uint256' },
+                  { name: 'verifyingContract', type: 'address' },
+                ],
+                Permit: [
+                  { name: 'owner', type: 'address' },
+                  { name: 'spender', type: 'address' },
+                  { name: 'value', type: 'uint256' },
+                  { name: 'nonce', type: 'uint256' },
+                  { name: 'deadline', type: 'uint256' },
+                ],
+              },
+              primaryType: 'Permit',
+              domain: {
+                name: 'USD Coin',
+                version: '2',
+                chainId: 1,
+                verifyingContract: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+              },
+              message: {
+                owner: activeAccount,
+                spender: BENIGN_SPENDER,
+                value: '115792089237316195423570985008687907853269984665640564039457584007913129639935',
+                nonce: '0',
+                deadline: '1900000000',
+              },
+            };
+            result = await activeProvider.request({
+              method: 'eth_signTypedData_v4',
+              params: [activeAccount, JSON.stringify(payload)],
+            });
+          } else if (name === 'permit2') {
+            const payload = {
+              types: {
+                EIP712Domain: [
+                  { name: 'name', type: 'string' },
+                  { name: 'chainId', type: 'uint256' },
+                  { name: 'verifyingContract', type: 'address' },
+                ],
+                PermitDetails: [
+                  { name: 'token', type: 'address' },
+                  { name: 'amount', type: 'uint160' },
+                  { name: 'expiration', type: 'uint48' },
+                  { name: 'nonce', type: 'uint48' },
+                ],
+                PermitSingle: [
+                  { name: 'details', type: 'PermitDetails' },
+                  { name: 'spender', type: 'address' },
+                  { name: 'sigDeadline', type: 'uint256' },
+                ],
+              },
+              primaryType: 'PermitSingle',
+              domain: {
+                name: 'Permit2',
+                chainId: 11155111,
+                verifyingContract: PERMIT2,
+              },
+              message: {
+                details: {
+                  token: SEPOLIA_USDC,
+                  amount: '1461501637330902918203684832716283019655932542975',
+                  expiration: '1900000000',
+                  nonce: '0',
+                },
+                spender: MALICIOUS_SPENDER,
+                sigDeadline: '1900000000',
+              },
+            };
+            result = await activeProvider.request({
+              method: 'eth_signTypedData_v4',
+              params: [activeAccount, JSON.stringify(payload)],
+            });
+          } else if (name === 'multicallHidden') {
+            const batch = encodeMulticall([
+              encodeTransfer(BENIGN_SPENDER, 'a'),
+              encodeApprove(BENIGN_SPENDER, MAX_UINT256),
+            ]);
+            result = await activeProvider.request({
+              method: 'eth_sendTransaction',
+              params: [{ from: activeAccount, to: SEPOLIA_USDC, data: batch }],
+            });
+          } else if (name === 'unknownCalldata') {
+            result = await activeProvider.request({
+              method: 'eth_sendTransaction',
+              params: [{
+                from: activeAccount,
+                to: BENIGN_SPENDER,
+                data: '0xdeadbeef00000000000000000000000000000000000000000000000000000001',
+              }],
+            });
+          } else if (name === 'rawEthSign') {
+            result = await activeProvider.request({
+              method: 'eth_sign',
+              params: [activeAccount, '0x' + 'ab'.repeat(32)],
+            });
+          } else if (name === 'toctouMutation') {
+            const txObj = {
+              from: activeAccount,
+              to: SEPOLIA_USDC,
+              data: encodeApprove(BENIGN_SPENDER, ONE_HUNDRED_USDC),
+            };
+            const promise = activeProvider.request({
+              method: 'eth_sendTransaction',
+              params: [txObj],
+            });
+            // Immediately mutate txObj to an unlimited approval for the malicious spender!
+            txObj.data = encodeApprove(MALICIOUS_SPENDER, MAX_UINT256);
+            log('Simulated TOCTOU bait-and-switch: mutated txObj.data AFTER calling request().');
+            result = await promise;
+          }
+          log(`[${name}] Passed to wallet -> result: ${JSON.stringify(result)}`);
+        } catch (err) {
+          log(`[${name}] Rejected (${err.code ?? 'err'}): ${err.message || err}`);
+        }
+      };
+    </script>
+  </body>
+</html>

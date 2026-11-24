@@ -1,3 +1,4 @@
+import { lookupAbiAndDecode, type CachedAbiEntry } from './abiLookup';
 import { decodeTransaction, shortAddr, type TxLike } from './decoders/calldata';
 import { decodePersonalSign, decodeRawEthSign } from './decoders/messages';
 import { decodeTypedData } from './decoders/typedData';
@@ -19,8 +20,10 @@ import type {
 
 export interface AnalyzeOptions {
   rpcEnrichmentEnabled?: boolean;
+  abiLookupEnabled?: boolean;
   customRpcUrl?: string;
   fetchImpl?: typeof fetch;
+  abiCache?: Map<string, CachedAbiEntry | string | null>;
 }
 
 function parseChainIdHex(hex?: string): number | undefined {
@@ -273,14 +276,65 @@ export async function analyzeRequest(
     }
 
     if (act.kind === 'SEAPORT_ORDER') {
-      findings.push({
-        id: 'SEAPORT_ORDER_SIGNATURE',
-        severity: 'HIGH',
-        title: 'Off-chain NFT marketplace order (Seaport)',
-        explanation:
-          'Signing a Seaport order can list or transfer your NFTs for whatever consideration is specified in the payload (including 0 ETH in phishing drains). Verify consideration items carefully.',
-        source: 'local_decoder',
-      });
+      if (act.seaportDetails?.zeroConsiderationToOfferer) {
+        findings.push({
+          id: 'SEAPORT_ZERO_CONSIDERATION_DRAIN',
+          severity: 'CRITICAL',
+          title: 'Seaport order gives away assets for 0 payment',
+          explanation:
+            'Your wallet offers NFT(s) or token(s), while consideration items pay 0 back to your address. Attackers use zero-consideration Seaport orders to steal NFTs off-chain without gas.',
+          source: 'local_decoder',
+          details: {
+            offerCount: act.seaportDetails.offerCount,
+            considerationCount: act.seaportDetails.considerationCount,
+            offererConsiderationCount: act.seaportDetails.offererConsiderationCount,
+          },
+        });
+      } else {
+        findings.push({
+          id: 'SEAPORT_ORDER_SIGNATURE',
+          severity: 'HIGH',
+          title: 'Off-chain NFT marketplace order (Seaport)',
+          explanation:
+            'Signing a Seaport order can list or transfer your NFTs for whatever consideration is specified in the payload. Verify consideration items and amounts carefully.',
+          source: 'local_decoder',
+        });
+      }
+    }
+
+    if (act.kind === 'BLUR_ORDER') {
+      if (act.functionName === 'Blur.Order' && act.approved === true) {
+        findings.push({
+          id: 'BLUR_ZERO_PRICE_DRAIN',
+          severity: 'CRITICAL',
+          title: 'Blur sell order lists NFT for 0 or dust price',
+          explanation:
+            'Signing this Blur listing offers your NFT for 0 (or <= 1000 wei), allowing anyone to sweep your NFT virtually for free.',
+          source: 'local_decoder',
+          details: {
+            collection: act.tokenAddress ?? null,
+            priceRaw: act.amountRaw ?? '0',
+          },
+        });
+      } else if (act.functionName === 'Blur.BulkOrderRoot') {
+        findings.push({
+          id: 'BLUR_BULK_ROOT_SIGNATURE',
+          severity: 'HIGH',
+          title: 'Blur bulk Merkle root hides individual NFT listing prices',
+          explanation:
+            'A Blur Root signature authorizes an entire Merkle tree of NFT orders at once. Individual item prices cannot be verified from the root hash alone.',
+          source: 'local_decoder',
+        });
+      } else {
+        findings.push({
+          id: 'BLUR_ORDER_SIGNATURE',
+          severity: 'HIGH',
+          title: 'Off-chain NFT marketplace order (Blur)',
+          explanation:
+            'Signing a Blur marketplace order authorizes NFT transfers or bids according to the signed parameters. Verify collection and price carefully.',
+          source: 'local_decoder',
+        });
+      }
     }
 
     if (act.kind === 'UNKNOWN_CALLDATA') {
@@ -356,16 +410,113 @@ export async function analyzeRequest(
     }
 
     if (onChain.targetIsProxy) {
+      if (onChain.proxyKind === 'EIP1967_BEACON') {
+        findings.push({
+          id: 'EIP1967_BEACON_PROXY',
+          severity: 'MEDIUM',
+          title: 'Target contract uses an upgradeable EIP-1967 Beacon proxy',
+          explanation: `Beacon contract ${onChain.beaconAddress ?? 'unknown'} points to implementation ${onChain.proxyImplementation ?? 'unresolved'}. A beacon admin can upgrade logic for all connected proxies simultaneously.`,
+          source: 'rpc_read',
+          details: {
+            beacon: onChain.beaconAddress ?? null,
+            implementation: onChain.proxyImplementation ?? null,
+          },
+        });
+      } else if (onChain.proxyKind === 'EIP1167_MINIMAL') {
+        findings.push({
+          id: 'EIP1167_MINIMAL_PROXY',
+          severity: 'INFO',
+          title: 'Target contract is an EIP-1167 minimal proxy clone',
+          explanation: `Contract delegates calls to master implementation ${onChain.proxyImplementation}.`,
+          source: 'rpc_read',
+          details: { implementation: onChain.proxyImplementation ?? null },
+        });
+      } else {
+        findings.push({
+          id: 'EIP1967_PROXY_CONTRACT',
+          severity: 'MEDIUM',
+          title: 'Target contract uses an upgradeable EIP-1967 proxy',
+          explanation: `Implementation contract resolves to ${onChain.proxyImplementation}. Proxy contracts can change behavior if their admin upgrades the implementation.`,
+          source: 'rpc_read',
+          details: { implementation: onChain.proxyImplementation ?? null },
+        });
+      }
+    }
+  }
+
+  // 6b. Optional Sourcify v2 / 4byte ABI lookup when local decoding hit UNKNOWN_CALLDATA
+  if (request.method === 'eth_sendTransaction' && decoded.kind === 'UNKNOWN_CALLDATA') {
+    const tx = (request.params[0] ?? {}) as TxLike;
+    const rawTxData = tx.data ?? tx.input;
+    const abiOutcome = await lookupAbiAndDecode({
+      abiLookupEnabled: Boolean(options.abiLookupEnabled),
+      chainId: activeChainId,
+      targetContract: primaryTarget,
+      proxyImplementation: onChain.proxyImplementation,
+      rawData: rawTxData,
+      selector: decoded.selector,
+      fetchImpl: options.fetchImpl,
+      cache: options.abiCache,
+      networkLog,
+    });
+
+    if (abiOutcome?.source === 'sourcify') {
+      decoded = {
+        ...decoded,
+        kind: 'SOURCIFY_DECODED',
+        functionName: abiOutcome.functionSignature,
+        abiSource: abiOutcome.abiSource,
+        contractName: abiOutcome.contractName,
+        decodedArgs: abiOutcome.decodedArgs,
+        summary: `Verified contract call: ${abiOutcome.functionSignature}`,
+      };
+
+      const opaqueIdx = findings.findIndex((f) => f.id === 'OPAQUE_CALLDATA');
+      if (opaqueIdx !== -1) {
+        findings.splice(opaqueIdx, 1);
+      }
+
       findings.push({
-        id: 'EIP1967_PROXY_CONTRACT',
+        id: 'SOURCIFY_VERIFIED_DECODE',
+        severity: 'INFO',
+        title: `Contract ABI verified via Sourcify${abiOutcome.contractName ? ` (${abiOutcome.contractName})` : ''}`,
+        explanation: `Decoded ${abiOutcome.functionSignature} from Sourcify v2 verified contract metadata.`,
+        source: 'sourcify_abi',
+        details: {
+          functionSignature: abiOutcome.functionSignature,
+          resolvedAddress: abiOutcome.resolvedAddress ?? null,
+        },
+      });
+
+      findings.push({
+        id: 'SOURCIFY_CUSTOM_FUNCTION_REVIEW',
         severity: 'MEDIUM',
-        title: 'Target contract uses an upgradeable EIP-1967 proxy',
-        explanation: `Implementation contract resolves to ${onChain.proxyImplementation}. Proxy contracts can change behavior if their admin upgrades the implementation.`,
-        source: 'rpc_read',
-        details: { implementation: onChain.proxyImplementation ?? null },
+        title: `Custom contract call (${abiOutcome.functionSignature.split('(')[0]}) requires review`,
+        explanation:
+          'Function name and parameters were verified via Sourcify, but custom smart contract logic can still transfer deposited assets or alter protocol permissions.',
+        source: 'sourcify_abi',
+      });
+    } else if (abiOutcome?.source === 'fourbyte') {
+      decoded = {
+        ...decoded,
+        functionName: `${abiOutcome.functionSignature} (unverified 4byte)`,
+        abiSource: 'fourbyte_unverified',
+        decodedArgs: abiOutcome.decodedArgs,
+        summary: `Unverified 4-byte match: ${abiOutcome.functionSignature}`,
+      };
+
+      findings.push({
+        id: 'FOURBYTE_UNVERIFIED_GUESS',
+        severity: 'MEDIUM',
+        title: `Unverified 4-byte selector match: ${abiOutcome.functionSignature}`,
+        explanation: `Selector ${decoded.selector ?? ''} matched a public 4byte signature entry, NOT verified source code on Sourcify. Malicious contracts can spoof 4-byte function names via selector collisions.`,
+        source: 'fourbyte_guess',
+        details: { signature: abiOutcome.functionSignature },
       });
     }
   }
+
+  const finalActions = flattenActions(decoded);
 
   if (decoded.kind === 'TYPED_DATA_GENERIC' || decoded.kind === 'UNKNOWN_CALLDATA') {
     limitations.push(
@@ -380,7 +531,7 @@ export async function analyzeRequest(
   const isUnanalyzed =
     decoded.kind === 'UNKNOWN_CALLDATA' ||
     decoded.kind === 'TYPED_DATA_GENERIC' ||
-    allActions.some((a) => a.kind === 'UNKNOWN_CALLDATA');
+    finalActions.some((a) => a.kind === 'UNKNOWN_CALLDATA');
 
   let verdict: Verdict;
   let headline: string;

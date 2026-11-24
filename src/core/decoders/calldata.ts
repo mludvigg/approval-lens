@@ -24,6 +24,11 @@ const KNOWN_ABI = parseAbi([
   'function multicall(bytes[] data)',
   'function multicall(uint256 deadline, bytes[] data)',
   'function multicall(bytes32 previousBlockhash, bytes[] data)',
+  // Multicall3 cross-contract batching (0xcA11bde05977b3631167028862bE2a173976CA11)
+  'function aggregate((address target, bytes callData)[] calls)',
+  'function aggregate3((address target, bool allowFailure, bytes callData)[] calls)',
+  'function aggregate3Value((address target, bool allowFailure, uint256 value, bytes callData)[] calls)',
+  'function tryAggregate(bool requireSuccess, (address target, bytes callData)[] calls)',
 ]);
 
 export const UNLIMITED_UINT160_THRESHOLD = 1n << 159n;
@@ -282,6 +287,56 @@ export function decodeCalldata(
           targetContract,
           subActions,
           summary: `Batched multicall containing ${callsArg.length} inner call(s)`,
+        };
+      }
+
+      case 'aggregate':
+      case 'aggregate3':
+      case 'aggregate3Value':
+      case 'tryAggregate': {
+        if (depth >= MAX_MULTICALL_DEPTH) {
+          return {
+            kind: 'UNKNOWN_CALLDATA',
+            functionName: `Multicall3.${decoded.functionName}`,
+            selector,
+            targetContract,
+            summary: `Nested Multicall3 exceeded max depth (${MAX_MULTICALL_DEPTH}); remaining calls unanalyzed`,
+          };
+        }
+
+        const rawTuples = (
+          decoded.functionName === 'tryAggregate' ? args[1] : args[0]
+        ) as ReadonlyArray<{
+          target?: string;
+          callData?: string;
+          value?: bigint | number;
+        }>;
+
+        const subActions: DecodedAction[] = rawTuples.slice(0, 25).map((item) => {
+          const subTarget = typeof item?.target === 'string' ? item.target : targetContract;
+          const subData = typeof item?.callData === 'string' ? item.callData : '0x';
+          const subValue =
+            item?.value !== undefined ? BigInt(item.value as bigint | number) : 0n;
+
+          if ((!subData || subData === '0x' || subData === '0x0') && subValue > 0n) {
+            return {
+              kind: 'NATIVE_TRANSFER',
+              targetContract: subTarget,
+              recipient: subTarget,
+              amountRaw: subValue.toString(),
+              summary: `Send native currency (${subValue.toString()} wei) to ${shortAddr(subTarget)}`,
+            };
+          }
+          return decodeCalldata(subData, subTarget, depth + 1);
+        });
+
+        return {
+          kind: 'MULTICALL',
+          functionName: `Multicall3.${decoded.functionName}`,
+          selector,
+          targetContract,
+          subActions,
+          summary: `Multicall3 batch (${decoded.functionName}) containing ${rawTuples.length} cross-contract call(s)`,
         };
       }
     }

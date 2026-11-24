@@ -1,6 +1,6 @@
 {
   "name": "approval-lens",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Local-first Chrome MV3 extension that inspects and explains Web3 approvals and signatures before you sign.",
@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lab": "node scripts/serve-test-lab.mjs"
+    "lab": "node scripts/serve-test-lab.mjs",
+    "sync:intel": "node scripts/sync-threat-intel.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

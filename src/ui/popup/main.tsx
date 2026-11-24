@@ -27,6 +27,7 @@ function PopupApp() {
   const [settings, setSettings] = useState<ExtensionSettings>({
     enabled: true,
     rpcEnrichmentEnabled: false,
+    abiLookupEnabled: false,
     customRpcUrl: '',
   });
   const [history, setHistory] = useState<HistoryRecord[]>([]);
@@ -98,15 +99,20 @@ function PopupApp() {
                 : 'Interception Paused'}
             </div>
             <div className="muted" style={{ fontSize: 11 }}>
-              {settings.rpcEnrichmentEnabled
-                ? 'Opt-in RPC enrichment enabled'
+              {settings.rpcEnrichmentEnabled || settings.abiLookupEnabled
+                ? [
+                    settings.rpcEnrichmentEnabled ? 'RPC enrichment' : null,
+                    settings.abiLookupEnabled ? 'Sourcify ABI' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' + ') + ' enabled'
                 : '100% Local mode · 0 network calls'}
             </div>
           </div>
         </div>
         <span className="pill" style={{ fontSize: 10 }}>
           <LockPrivacyIcon size={11} />
-          {settings.rpcEnrichmentEnabled ? 'RPC On' : 'Local'}
+          {settings.rpcEnrichmentEnabled || settings.abiLookupEnabled ? 'Opt-in Net' : 'Local'}
         </span>
       </section>
 
@@ -167,6 +173,22 @@ function PopupApp() {
             </div>
           </div>
         )}
+
+        <label className="toggle-row">
+          <span>
+            <strong style={{ fontSize: 12.5 }}>Verified ABI lookup (Sourcify)</strong>
+            <div className="muted" style={{ fontSize: 11 }}>
+              Off = local ABIs only. On = queries Sourcify v2 (+ 4byte fallback) for unknown calls.
+            </div>
+          </span>
+          <input
+            type="checkbox"
+            checked={settings.abiLookupEnabled}
+            onChange={(e) =>
+              updateSettings({ abiLookupEnabled: e.target.checked })
+            }
+          />
+        </label>
 
         {savedNotice && (
           <div style={{ color: 'var(--brand)', fontSize: 11, marginTop: 6, fontWeight: 600 }}>

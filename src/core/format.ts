@@ -151,7 +151,26 @@ export function buildPlainEnglishSummary(result: InspectionResult): string {
       return `You are authorizing ${actor} to immediately pull ${formattedAmt} from your wallet via a gasless Permit2 signature.`;
 
     case 'SEAPORT_ORDER':
-      return `You are signing an off-chain marketplace order that can transfer your listed NFTs or tokens for the consideration specified in the payload.`;
+      if (decoded.seaportDetails?.zeroConsiderationToOfferer) {
+        return `DANGER: You are offering ${decoded.seaportDetails.offerCount} asset(s) in a Seaport order that pays 0 back to your wallet — this matches a zero-price NFT phishing drain.`;
+      }
+      return `You are signing an off-chain marketplace order offering ${decoded.seaportDetails?.offerCount ?? 'your'} asset(s) for ${decoded.seaportDetails?.considerationCount ?? 'specified'} consideration item(s). Verify the payment returning to your wallet.`;
+
+    case 'BLUR_ORDER':
+      if (decoded.functionName === 'Blur.BulkOrderRoot') {
+        return `You are signing a Blur bulk Merkle root authorizing multiple NFT listings at once. Individual NFT prices are hidden inside the root hash and cannot be verified here.`;
+      }
+      if (decoded.approved) {
+        return `DANGER: You are signing a Blur sell order listing your NFT from ${shortAddr(decoded.tokenAddress)} for 0 (or dust) — an attacker can sweep it virtually for free.`;
+      }
+      return `You are signing an off-chain Blur marketplace order on collection ${shortAddr(decoded.tokenAddress)}. Verify the price and order side carefully.`;
+
+    case 'SOURCIFY_DECODED':
+      return `You are calling verified function ${decoded.functionName ?? 'unknown'} on ${
+        decoded.contractName
+          ? `${decoded.contractName} (${shortAddr(decoded.targetContract)})`
+          : describeActor(decoded.targetContract)
+      }. Review the decoded parameters below before signing.`;
 
     case 'MULTICALL':
       return `You are executing a bundled batch of ${decoded.subActions?.length ?? 'multiple'} operations in a single transaction. Check every nested step for hidden approvals.`;

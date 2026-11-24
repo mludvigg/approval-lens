@@ -252,8 +252,38 @@ export function decodeTypedData(params: unknown[]): TypedDataDecodeOutput {
 
   // 5. Seaport / NFT Marketplace OrderComponents (common NFT drainer vector)
   if (primaryType === 'OrderComponents' && Array.isArray(msg.offer)) {
-    const offerCount = msg.offer.length;
-    const considerationCount = Array.isArray(msg.consideration) ? msg.consideration.length : 0;
+    const offer = msg.offer as Record<string, unknown>[];
+    const consideration = Array.isArray(msg.consideration)
+      ? (msg.consideration as Record<string, unknown>[])
+      : [];
+    const offerCount = offer.length;
+    const considerationCount = consideration.length;
+    const offerer = typeof msg.offerer === 'string' ? msg.offerer : undefined;
+    const firstOfferToken =
+      typeof offer[0]?.token === 'string' ? (offer[0].token as string) : undefined;
+    const endTime = msg.endTime !== undefined ? String(msg.endTime) : undefined;
+
+    const recipientSet = new Set<string>();
+    let offererConsiderationCount = 0;
+
+    for (const item of consideration) {
+      const rec = typeof item?.recipient === 'string' ? item.recipient : undefined;
+      if (rec) recipientSet.add(rec);
+      const amt =
+        parseBigIntSafe(item?.startAmount) ?? parseBigIntSafe(item?.endAmount) ?? 0n;
+      if (amt > 0n) {
+        if (!offerer || (rec && rec.toLowerCase() === offerer.toLowerCase())) {
+          offererConsiderationCount += 1;
+        }
+      }
+    }
+
+    const recipients = Array.from(recipientSet);
+    const zeroConsiderationToOfferer = offerCount > 0 && offererConsiderationCount === 0;
+    const externalRecipient = recipients.find(
+      (r) => !offerer || r.toLowerCase() !== offerer.toLowerCase(),
+    );
+
     return {
       domainChainId,
       verifyingContract,
@@ -263,13 +293,78 @@ export function decodeTypedData(params: unknown[]): TypedDataDecodeOutput {
         kind: 'SEAPORT_ORDER',
         functionName: 'Seaport.OrderComponents',
         targetContract: verifyingContract,
-        owner: typeof msg.offerer === 'string' ? msg.offerer : undefined,
-        summary: `Marketplace order offering ${offerCount} asset(s) for ${considerationCount} consideration item(s) — verify price carefully`,
+        tokenAddress: firstOfferToken,
+        owner: offerer,
+        recipient: zeroConsiderationToOfferer ? externalRecipient : undefined,
+        deadline: endTime,
+        seaportDetails: {
+          offerCount,
+          considerationCount,
+          offererConsiderationCount,
+          zeroConsiderationToOfferer,
+          recipients,
+        },
+        summary: zeroConsiderationToOfferer
+          ? `DANGER: Seaport order offering ${offerCount} asset(s) with 0 payment returning to your wallet`
+          : `Marketplace order offering ${offerCount} asset(s) for ${considerationCount} consideration item(s) — verify price carefully`,
       },
     };
   }
 
-  // 6. Generic / Unrecognized EIP-712 typed data
+  // 6. Blur NFT Marketplace Orders (single Order & bulk Merkle Root)
+  if (
+    primaryType === 'Order' &&
+    msg.trader !== undefined &&
+    msg.collection !== undefined &&
+    msg.side !== undefined
+  ) {
+    const sideNum = Number(msg.side);
+    const priceVal = parseBigIntSafe(msg.price);
+    const collection = typeof msg.collection === 'string' ? msg.collection : undefined;
+    const trader = typeof msg.trader === 'string' ? msg.trader : undefined;
+    const expiration =
+      msg.expirationTime !== undefined ? String(msg.expirationTime) : undefined;
+    const isZeroOrDustSell = sideNum === 1 && (priceVal === null || priceVal <= 1000n);
+
+    return {
+      domainChainId,
+      verifyingContract,
+      domainName,
+      primaryType,
+      decoded: {
+        kind: 'BLUR_ORDER',
+        functionName: 'Blur.Order',
+        targetContract: verifyingContract,
+        tokenAddress: collection,
+        owner: trader,
+        amountRaw: priceVal !== null ? priceVal.toString() : undefined,
+        approved: isZeroOrDustSell,
+        deadline: expiration,
+        summary: isZeroOrDustSell
+          ? `DANGER: Blur sell order listing NFT from ${shortAddr(collection)} for 0 / dust price`
+          : `Blur marketplace ${sideNum === 1 ? 'sell listing' : 'buy bid'} on collection ${shortAddr(collection)}`,
+      },
+    };
+  }
+
+  if (primaryType === 'Root' && msg.root !== undefined) {
+    return {
+      domainChainId,
+      verifyingContract,
+      domainName,
+      primaryType,
+      decoded: {
+        kind: 'BLUR_ORDER',
+        functionName: 'Blur.BulkOrderRoot',
+        targetContract: verifyingContract,
+        rawPreview: String(msg.root).slice(0, 74),
+        summary:
+          'Blur bulk Merkle root signature — signs multiple hidden NFT orders inside a single root hash',
+      },
+    };
+  }
+
+  // 7. Generic / Unrecognized EIP-712 typed data
   return {
     domainChainId,
     verifyingContract,

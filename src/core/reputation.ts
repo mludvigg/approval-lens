@@ -1,9 +1,11 @@
+import communityDomainsData from '../data/community-domains.json';
 import reputationData from '../data/reputation.json';
 
 export interface MaliciousDomainMatch {
   domain: string;
   label: string;
   reason: string;
+  feedSource?: string;
 }
 
 export interface MaliciousAddressMatch {
@@ -24,6 +26,10 @@ const maliciousDomainMap = new Map<string, MaliciousDomainMatch>(
   reputationData.maliciousDomains.map((entry) => [entry.domain.toLowerCase(), entry]),
 );
 
+const communityDomainSet = new Set<string>(
+  (communityDomainsData.domains ?? []).map((d) => d.toLowerCase()),
+);
+
 const maliciousAddressMap = new Map<string, MaliciousAddressMatch>(
   reputationData.maliciousAddresses.map((entry) => [entry.address.toLowerCase(), entry]),
 );
@@ -33,7 +39,18 @@ const knownContractMap = new Map<string, KnownContractMatch>(
 );
 
 export function getReputationVersion(): string {
-  return reputationData.version;
+  return `${reputationData.version}+${communityDomainsData.source}@${communityDomainsData.count}`;
+}
+
+export function getCommunityFeedMetadata() {
+  return {
+    source: communityDomainsData.source,
+    license: communityDomainsData.license,
+    repository: communityDomainsData.repository,
+    count: communityDomainsData.count,
+    updatedAt: communityDomainsData.updatedAt,
+    sha256: communityDomainsData.sha256,
+  };
 }
 
 export function extractHostname(originOrUrl: string): string | null {
@@ -48,7 +65,7 @@ export function checkMaliciousDomain(originOrUrl: string): MaliciousDomainMatch 
   const hostname = extractHostname(originOrUrl);
   if (!hostname) return null;
 
-  // Match exact domain or any subdomain of a listed malicious domain
+  // 1. Check curated local domain rules (exact + parent domain suffix)
   const exact = maliciousDomainMap.get(hostname);
   if (exact) return exact;
 
@@ -57,6 +74,21 @@ export function checkMaliciousDomain(originOrUrl: string): MaliciousDomainMatch 
       return entry;
     }
   }
+
+  // 2. O(k) parent-label lookup against offline community phishing snapshot (MetaMask eth-phishing-detect)
+  const labels = hostname.split('.');
+  for (let i = 0; i < labels.length - 1; i += 1) {
+    const candidate = labels.slice(i).join('.');
+    if (communityDomainSet.has(candidate)) {
+      return {
+        domain: candidate,
+        label: `Community Phishing Blocklist (${communityDomainsData.source})`,
+        reason: `Listed in offline ${communityDomainsData.source} snapshot (${communityDomainsData.license}).`,
+        feedSource: communityDomainsData.source,
+      };
+    }
+  }
+
   return null;
 }
 

@@ -197,6 +197,24 @@
         </div>
         <button onclick="runScenario('toctouMutation')">Trigger Bait-and-Switch</button>
       </div>
+
+      <div class="card">
+        <div>
+          <span class="badge crit">KNOWN_MALICIOUS</span>
+          <h3>10. Multicall3.aggregate3 Cross-Contract Drainer</h3>
+          <p>Calls canonical <code>Multicall3.aggregate3</code> bundling a 1 USDC transfer with a hidden unlimited USDC approval to <code>0xbad0…0bad</code>.</p>
+        </div>
+        <button onclick="runScenario('multicall3Drainer')">Trigger Multicall3 Batch</button>
+      </div>
+
+      <div class="card">
+        <div>
+          <span class="badge crit">CRITICAL DRAIN</span>
+          <h3>11. Seaport Zero-ETH NFT Phishing Order</h3>
+          <p>Gasless Seaport 1.6 <code>OrderComponents</code> offering your NFT while paying <code>0</code> consideration back to your wallet.</p>
+        </div>
+        <button onclick="runScenario('seaportZeroDrain')">Trigger Seaport 0-ETH Drain</button>
+      </div>
     </div>
 
     <div id="log">[Test Lab] Ready. Load Approval Lens in chrome://extensions, then click Connect Wallet.</div>
@@ -207,6 +225,8 @@
       const MALICIOUS_SPENDER = '0xbad0000000000000000000000000000000000bad';
       const MALICIOUS_NFT_OP = '0xdeaf00000000000000000000000000000000cafe';
       const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+      const MULTICALL3 = '0xca11bde05977b3631167028862be2a173976ca11';
+      const SEAPORT_1_6 = '0x0000000000000068f116a894984e2db1123eb395';
 
       const eip6963Providers = new Map();
       let activeProvider = null;
@@ -450,6 +470,111 @@
             txObj.data = encodeApprove(MALICIOUS_SPENDER, MAX_UINT256);
             log('Simulated TOCTOU bait-and-switch: mutated txObj.data AFTER calling request().');
             result = await promise;
+          } else if (name === 'multicall3Drainer') {
+            // Multicall3.aggregate3([(SEPOLIA_USDC, false, transfer(BENIGN, 1 USDC)), (SEPOLIA_USDC, false, approve(MALICIOUS, MAX_UINT256))])
+            const mc3Data =
+              '0x82ad56cb0000000000000000000000000000000000000000000000000000000000000020' +
+              '0000000000000000000000000000000000000000000000000000000000000002' +
+              '0000000000000000000000000000000000000000000000000000000000000040' +
+              '0000000000000000000000000000000000000000000000000000000000000120' +
+              '0000000000000000000000001c7d4b196cb0c7b01d743fbc6116a902379c7238' +
+              '0000000000000000000000000000000000000000000000000000000000000000' +
+              '0000000000000000000000000000000000000000000000000000000000000060' +
+              '0000000000000000000000000000000000000000000000000000000000000044' +
+              'a9059cbb0000000000000000000000002222222222222222222222222222222222222222' +
+              '00000000000000000000000000000000000000000000000000000000000f4240' +
+              '00000000000000000000000000000000000000000000000000000000' +
+              '0000000000000000000000001c7d4b196cb0c7b01d743fbc6116a902379c7238' +
+              '0000000000000000000000000000000000000000000000000000000000000000' +
+              '0000000000000000000000000000000000000000000000000000000000000060' +
+              '0000000000000000000000000000000000000000000000000000000000000044' +
+              '095ea7b3000000000000000000000000bad0000000000000000000000000000000000bad' +
+              'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' +
+              '00000000000000000000000000000000000000000000000000000000';
+            result = await activeProvider.request({
+              method: 'eth_sendTransaction',
+              params: [{ from: activeAccount, to: MULTICALL3, data: mc3Data }],
+            });
+          } else if (name === 'seaportZeroDrain') {
+            const payload = {
+              types: {
+                EIP712Domain: [
+                  { name: 'name', type: 'string' },
+                  { name: 'version', type: 'string' },
+                  { name: 'chainId', type: 'uint256' },
+                  { name: 'verifyingContract', type: 'address' },
+                ],
+                OfferItem: [
+                  { name: 'itemType', type: 'uint8' },
+                  { name: 'token', type: 'address' },
+                  { name: 'identifierOrCriteria', type: 'uint256' },
+                  { name: 'startAmount', type: 'uint256' },
+                  { name: 'endAmount', type: 'uint256' },
+                ],
+                ConsiderationItem: [
+                  { name: 'itemType', type: 'uint8' },
+                  { name: 'token', type: 'address' },
+                  { name: 'identifierOrCriteria', type: 'uint256' },
+                  { name: 'startAmount', type: 'uint256' },
+                  { name: 'endAmount', type: 'uint256' },
+                  { name: 'recipient', type: 'address' },
+                ],
+                OrderComponents: [
+                  { name: 'offerer', type: 'address' },
+                  { name: 'zone', type: 'address' },
+                  { name: 'offer', type: 'OfferItem[]' },
+                  { name: 'consideration', type: 'ConsiderationItem[]' },
+                  { name: 'orderType', type: 'uint8' },
+                  { name: 'startTime', type: 'uint256' },
+                  { name: 'endTime', type: 'uint256' },
+                  { name: 'zoneHash', type: 'bytes32' },
+                  { name: 'salt', type: 'uint256' },
+                  { name: 'conduitKey', type: 'bytes32' },
+                  { name: 'counter', type: 'uint256' },
+                ],
+              },
+              primaryType: 'OrderComponents',
+              domain: {
+                name: 'Seaport',
+                version: '1.6',
+                chainId: 11155111,
+                verifyingContract: SEAPORT_1_6,
+              },
+              message: {
+                offerer: activeAccount,
+                zone: '0x0000000000000000000000000000000000000000',
+                offer: [
+                  {
+                    itemType: 2,
+                    token: '0x3333333333333333333333333333333333333333',
+                    identifierOrCriteria: '42',
+                    startAmount: '1',
+                    endAmount: '1',
+                  },
+                ],
+                consideration: [
+                  {
+                    itemType: 0,
+                    token: '0x0000000000000000000000000000000000000000',
+                    identifierOrCriteria: '0',
+                    startAmount: '0',
+                    endAmount: '0',
+                    recipient: BENIGN_SPENDER,
+                  },
+                ],
+                orderType: 0,
+                startTime: '1700000000',
+                endTime: '1900000000',
+                zoneHash: '0x' + '00'.repeat(32),
+                salt: '1',
+                conduitKey: '0x' + '00'.repeat(32),
+                counter: '0',
+              },
+            };
+            result = await activeProvider.request({
+              method: 'eth_signTypedData_v4',
+              params: [activeAccount, JSON.stringify(payload)],
+            });
           }
           log(`[${name}] Passed to wallet -> result: ${JSON.stringify(result)}`);
         } catch (err) {

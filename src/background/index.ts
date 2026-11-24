@@ -1,3 +1,4 @@
+import type { CachedAbiEntry } from '../core/abiLookup';
 import { analyzeRequest } from '../core/analyzer';
 import type {
   ExtensionSettings,
@@ -12,12 +13,16 @@ const SETTINGS_KEY = 'approvalLensSettings';
 const HISTORY_KEY = 'approvalLensHistory';
 const PENDING_PREFIX = 'pending:';
 const MAX_HISTORY = 30;
+const MAX_ABI_CACHE = 100;
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
   enabled: true,
   rpcEnrichmentEnabled: false, // Local-first by default (0 external network calls)
+  abiLookupEnabled: false, // Opt-in Sourcify/4byte lookup (OFF by default)
   customRpcUrl: '',
 };
+
+const abiSessionCache = new Map<string, CachedAbiEntry | string | null>();
 
 interface PendingEntry {
   resolve: (resp: { decision: UserDecision; reason?: string }) => void;
@@ -107,7 +112,7 @@ chrome.windows.onRemoved.addListener((closedWindowId) => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.info('[Approval Lens] Service worker ready (v0.1.0)');
+  console.info('[Approval Lens] Service worker ready (v0.2.0)');
 });
 
 chrome.runtime.onMessage.addListener(
@@ -149,9 +154,16 @@ chrome.runtime.onMessage.addListener(
             chainIdHex: message.chainIdHex,
           };
 
+          if (abiSessionCache.size > MAX_ABI_CACHE) {
+            const oldestKey = abiSessionCache.keys().next().value;
+            if (oldestKey !== undefined) abiSessionCache.delete(oldestKey);
+          }
+
           const result = await analyzeRequest(request, {
             rpcEnrichmentEnabled: settings.rpcEnrichmentEnabled,
+            abiLookupEnabled: settings.abiLookupEnabled,
             customRpcUrl: settings.customRpcUrl,
+            abiCache: abiSessionCache,
           });
 
           await chrome.storage.session.set({

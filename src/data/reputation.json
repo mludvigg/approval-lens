@@ -1,16 +1,18 @@
 {
-  "version": "2026.11.21-local-v1",
-  "description": "Local versioned threat intelligence & known-contract labels bundled with Approval Lens. Contains curated demo/test indicators and canonical protocol addresses only (no unlicensed third-party feeds).",
+  "version": "2026.11.24-local-v2",
+  "description": "Local versioned threat intelligence & known-contract labels bundled with Approval Lens. Test Lab vanity fixtures are explicitly marked isTestFixture: true; community phishing domains live in community-domains.json with license attribution.",
   "maliciousDomains": [
     {
       "domain": "claim-airdrop-bonus.example",
       "label": "Known Phishing Drainer Domain",
-      "reason": "Flagged for impersonating token airdrop portals to steal wallet approvals."
+      "reason": "Flagged for impersonating token airdrop portals to steal wallet approvals.",
+      "isTestFixture": true
     },
     {
       "domain": "uniswap-v4-claim.example",
       "label": "Protocol Impersonation Domain",
-      "reason": "Flagged for spoofing a DeFi protocol interface to trick users into signing permits."
+      "reason": "Flagged for spoofing a DeFi protocol interface to trick users into signing permits.",
+      "isTestFixture": true
     }
   ],
   "maliciousAddresses": [
@@ -22,12 +24,14 @@
     {
       "address": "0xbad0000000000000000000000000000000000bad",
       "label": "Reported Wallet Drainer",
-      "reason": "Flagged in local threat intelligence for sweeping approved ERC-20 tokens."
+      "reason": "Flagged in local threat intelligence for sweeping approved ERC-20 tokens.",
+      "isTestFixture": true
     },
     {
       "address": "0xdeaf00000000000000000000000000000000cafe",
       "label": "Reported NFT Drainer Operator",
-      "reason": "Flagged in local threat intelligence for draining NFT collections via setApprovalForAll."
+      "reason": "Flagged in local threat intelligence for draining NFT collections via setApprovalForAll.",
+      "isTestFixture": true
     }
   ],
   "knownContracts": [
@@ -35,6 +39,21 @@
       "address": "0x000000000022d473030f116ddee9f6b43ac78ba3",
       "name": "Uniswap Permit2",
       "note": "Canonical Uniswap Permit2 contract. Legitimate protocol, but permits signed for Permit2 grant spending power to whichever 'spender' is inside the signed message."
+    },
+    {
+      "address": "0xca11bde05977b3631167028862be2a173976ca11",
+      "name": "Multicall3 (Canonical)",
+      "note": "Canonical cross-chain Multicall3 router. Inspects every nested target and callData inside the batch."
+    },
+    {
+      "address": "0x00000000000000adc04c56bf30ac9d3c0aaf14dc",
+      "name": "OpenSea Seaport 1.5",
+      "note": "Canonical Seaport 1.5 NFT marketplace contract. Always verify consideration items paid back to your wallet."
+    },
+    {
+      "address": "0x0000000000000068f116a894984e2db1123eb395",
+      "name": "OpenSea Seaport 1.6",
+      "note": "Canonical Seaport 1.6 NFT marketplace contract. Always verify consideration items paid back to your wallet."
     },
     {
       "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",

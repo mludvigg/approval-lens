@@ -11,7 +11,21 @@ import type { NetworkLogEntry, OnChainContext } from './types';
 const EIP1967_IMPL_SLOT =
   '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
 
+// EIP-1967 beacon slot: bytes32(uint256(keccak256('eip1967.proxy.beacon')) - 1)
+const EIP1967_BEACON_SLOT =
+  '0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50';
+
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+const BEACON_ABI = parseAbi(['function implementation() view returns (address)']);
+
+export function parseEip1167Implementation(bytecode?: string): string | null {
+  if (!bytecode || typeof bytecode !== 'string') return null;
+  const match = bytecode
+    .trim()
+    .match(/^0x363d3d373d3d3d363d73([0-9a-fA-F]{40})5af43d82803e903d91602b57fd5bf3$/i);
+  return match ? `0x${match[1].toLowerCase()}` : null;
+}
 
 const DEFAULT_PUBLIC_RPCS: Record<number, string> = {
   1: 'https://ethereum-rpc.publicnode.com',
@@ -267,7 +281,7 @@ export async function fetchOnChainContext(
     );
   }
 
-  // 4. EIP-1967 proxy detection on target contract
+  // 4. Proxy detection on target contract (EIP-1967 impl, EIP-1167 minimal clone, EIP-1967 beacon)
   const proxyTarget = params.targetContract ?? params.tokenAddress;
   if (isValidAddress(proxyTarget)) {
     tasks.push(
@@ -284,11 +298,82 @@ export async function fetchOnChainContext(
           const impl = `0x${slotVal.slice(-40).toLowerCase()}`;
           if (impl !== ZERO_ADDRESS) {
             onChain.targetIsProxy = true;
+            onChain.proxyKind = 'EIP1967_IMPL';
             onChain.proxyImplementation = impl;
-          } else {
-            onChain.targetIsProxy = false;
+            return;
           }
         }
+
+        // Check EIP-1167 minimal proxy clone bytecode
+        const targetCode = await rpcCall(
+          rpcUrl,
+          'eth_getCode',
+          [proxyTarget, 'latest'],
+          'Check target bytecode for EIP-1167 minimal proxy clone',
+          networkLog,
+          fetchImpl,
+        );
+        if (typeof targetCode === 'string') {
+          const cloneImpl = parseEip1167Implementation(targetCode);
+          if (cloneImpl && cloneImpl !== ZERO_ADDRESS) {
+            onChain.targetIsProxy = true;
+            onChain.proxyKind = 'EIP1167_MINIMAL';
+            onChain.proxyImplementation = cloneImpl;
+            return;
+          }
+        }
+
+        // Check EIP-1967 Beacon proxy slot
+        const beaconSlotVal = await rpcCall(
+          rpcUrl,
+          'eth_getStorageAt',
+          [proxyTarget, EIP1967_BEACON_SLOT, 'latest'],
+          'Check EIP-1967 beacon proxy slot',
+          networkLog,
+          fetchImpl,
+        );
+        if (typeof beaconSlotVal === 'string' && /^0x[0-9a-fA-F]{64}$/.test(beaconSlotVal)) {
+          const beaconAddr = `0x${beaconSlotVal.slice(-40).toLowerCase()}`;
+          if (beaconAddr !== ZERO_ADDRESS) {
+            onChain.targetIsProxy = true;
+            onChain.proxyKind = 'EIP1967_BEACON';
+            onChain.beaconAddress = beaconAddr;
+
+            const implCallData = encodeFunctionData({
+              abi: BEACON_ABI,
+              functionName: 'implementation',
+            });
+            const beaconImplRaw = await rpcCall(
+              rpcUrl,
+              'eth_call',
+              [{ to: beaconAddr, data: implCallData }, 'latest'],
+              'Resolve implementation() from EIP-1967 beacon contract',
+              networkLog,
+              fetchImpl,
+            );
+            if (typeof beaconImplRaw === 'string' && beaconImplRaw.length >= 42) {
+              try {
+                const decodedImpl = decodeFunctionResult({
+                  abi: BEACON_ABI,
+                  functionName: 'implementation',
+                  data: beaconImplRaw as Hex,
+                });
+                if (
+                  typeof decodedImpl === 'string' &&
+                  decodedImpl.toLowerCase() !== ZERO_ADDRESS
+                ) {
+                  onChain.proxyImplementation = decodedImpl.toLowerCase();
+                }
+              } catch {
+                // Keep beacon detected even if implementation() call fails
+              }
+            }
+            return;
+          }
+        }
+
+        onChain.targetIsProxy = false;
+        onChain.proxyKind = null;
       })(),
     );
   }

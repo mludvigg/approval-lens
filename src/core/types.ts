@@ -11,7 +11,9 @@ export type EvidenceSource =
   | 'local_decoder'
   | 'local_reputation'
   | 'rpc_read'
-  | 'browser_context';
+  | 'browser_context'
+  | 'sourcify_abi'
+  | 'fourbyte_guess';
 
 export type InterceptedMethod =
   | 'eth_sendTransaction'
@@ -38,6 +40,22 @@ export interface RiskFinding {
   details?: Record<string, string | number | boolean | null>;
 }
 
+export interface SeaportOrderDetails {
+  offerCount: number;
+  considerationCount: number;
+  offererConsiderationCount: number;
+  zeroConsiderationToOfferer: boolean;
+  recipients: string[];
+}
+
+export interface DecodedArgEntry {
+  name: string;
+  type: string;
+  value: string;
+}
+
+export type ProxyKind = 'EIP1967_IMPL' | 'EIP1967_BEACON' | 'EIP1167_MINIMAL';
+
 export interface DecodedAction {
   kind:
     | 'ERC20_APPROVE'
@@ -52,10 +70,12 @@ export interface DecodedAction {
     | 'PERMIT2_BATCH'
     | 'PERMIT2_TRANSFER_FROM'
     | 'SEAPORT_ORDER'
+    | 'BLUR_ORDER'
     | 'MULTICALL'
     | 'NATIVE_TRANSFER'
     | 'PERSONAL_SIGN'
     | 'RAW_ETH_SIGN'
+    | 'SOURCIFY_DECODED'
     | 'TYPED_DATA_GENERIC'
     | 'UNKNOWN_CALLDATA';
   summary: string;
@@ -72,6 +92,10 @@ export interface DecodedAction {
   tokenAddress?: string;
   subActions?: DecodedAction[];
   rawPreview?: string;
+  decodedArgs?: DecodedArgEntry[];
+  abiSource?: 'local' | 'sourcify_exact' | 'sourcify_partial' | 'fourbyte_unverified';
+  contractName?: string;
+  seaportDetails?: SeaportOrderDetails;
 }
 
 export interface OnChainContext {
@@ -82,7 +106,9 @@ export interface OnChainContext {
   currentAllowanceRaw?: string;
   spenderIsContract?: boolean | null;
   targetIsProxy?: boolean | null;
+  proxyKind?: ProxyKind | null;
   proxyImplementation?: string | null;
+  beaconAddress?: string | null;
 }
 
 export interface InspectionRequest {
@@ -116,6 +142,7 @@ export interface InspectionResult {
 export interface ExtensionSettings {
   enabled: boolean;
   rpcEnrichmentEnabled: boolean;
+  abiLookupEnabled: boolean;
   customRpcUrl: string;
 }
 

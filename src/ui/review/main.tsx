@@ -75,7 +75,20 @@ function getHumanRequestHeader(
     case 'SEAPORT_ORDER':
       return {
         title: 'Marketplace listing signature',
-        subtitle: `${originHost} is requesting an off-chain order authorizing asset transfers`,
+        subtitle: `${originHost} is requesting an off-chain Seaport order authorizing asset transfers`,
+      };
+    case 'BLUR_ORDER':
+      return {
+        title:
+          decoded.functionName === 'Blur.BulkOrderRoot'
+            ? 'Bulk marketplace root signature'
+            : 'Marketplace listing signature',
+        subtitle: `${originHost} is requesting an off-chain Blur NFT order signature`,
+      };
+    case 'SOURCIFY_DECODED':
+      return {
+        title: 'Verified contract interaction',
+        subtitle: `${originHost} is calling ${decoded.functionName ?? 'a verified function'} (decoded via Sourcify)`,
       };
     case 'MULTICALL':
       return {
@@ -434,7 +447,13 @@ function ReviewApp() {
           <div className="header-controls">
             <span className="pill pill-brand" title="Local static analysis by default">
               <LockPrivacyIcon size={11} />
-              {onChain.rpcEnabled ? 'RPC Enriched' : 'Local · 0 RPC'}
+              {onChain.rpcEnabled && decoded.abiSource
+                ? 'RPC + ABI Lookup'
+                : onChain.rpcEnabled
+                  ? 'RPC Enriched'
+                  : decoded.abiSource
+                    ? 'Sourcify Lookup'
+                    : 'Local · 0 RPC'}
             </span>
             <span className="pill">{request.walletName ?? 'EIP-1193'}</span>
             <button
@@ -531,8 +550,46 @@ function ReviewApp() {
                     <span className="detail-val">{formattedExpiry}</span>
                   </div>
                 )}
+
+                {decoded.seaportDetails && (
+                  <div className="detail-row">
+                    <span className="detail-label">Order balance</span>
+                    <span className="detail-val">
+                      {decoded.seaportDetails.zeroConsiderationToOfferer ? (
+                        <span className="inline-flag">
+                          You give {decoded.seaportDetails.offerCount} · Receive 0
+                        </span>
+                      ) : (
+                        <span>
+                          Offer {decoded.seaportDetails.offerCount} · Receive{' '}
+                          {decoded.seaportDetails.offererConsiderationCount}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
             </section>
+
+            {/* Dynamically Decoded Arguments (Sourcify v2 / 4byte) */}
+            {decoded.decodedArgs && decoded.decodedArgs.length > 0 && (
+              <section className="findings-section">
+                <div className="section-header-row">
+                  <h2 className="section-eyebrow">
+                    Decoded parameters ({decoded.decodedArgs.length})
+                  </h2>
+                </div>
+                {decoded.decodedArgs.map((arg, idx) => (
+                  <div className="sub-call" key={idx}>
+                    <strong>{arg.name}</strong>{' '}
+                    <span className="muted" style={{ fontSize: 11 }}>
+                      ({arg.type})
+                    </span>
+                    : <span className="mono">{arg.value}</span>
+                  </div>
+                ))}
+              </section>
+            )}
 
             {/* Nested Multicall / Batch Operations (when applicable) */}
             {decoded.subActions && decoded.subActions.length > 0 && (

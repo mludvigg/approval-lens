@@ -16,6 +16,8 @@ export interface KnownContractMatch {
   address: string;
   name: string;
   note: string;
+  symbol?: string;
+  decimals?: number;
 }
 
 const maliciousDomainMap = new Map<string, MaliciousDomainMatch>(

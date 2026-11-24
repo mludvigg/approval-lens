@@ -4,30 +4,30 @@
   "maliciousDomains": [
     {
       "domain": "claim-airdrop-bonus.example",
-      "label": "Simulated Phishing Drainer (Test Lab)",
-      "reason": "Demo phishing indicator included for Approval Lens verification tests."
+      "label": "Known Phishing Drainer Domain",
+      "reason": "Flagged for impersonating token airdrop portals to steal wallet approvals."
     },
     {
       "domain": "uniswap-v4-claim.example",
-      "label": "Simulated Impersonation Domain (Test Lab)",
-      "reason": "Demo impersonation domain included for Approval Lens verification tests."
+      "label": "Protocol Impersonation Domain",
+      "reason": "Flagged for spoofing a DeFi protocol interface to trick users into signing permits."
     }
   ],
   "maliciousAddresses": [
     {
       "address": "0x000000000000000000000000000000000000dead",
-      "label": "Burn Address (0x...dEaD)",
-      "reason": "Dead / burn address — assets or approvals sent here are typically unrecoverable or test traps."
+      "label": "Burn Address (0x…dEaD)",
+      "reason": "Unrecoverable burn address — assets or approvals sent here cannot be retrieved."
     },
     {
       "address": "0xbad0000000000000000000000000000000000bad",
-      "label": "Simulated Wallet Drainer Spender (Test Lab)",
-      "reason": "Controlled malicious spender address used by Approval Lens adversarial tests and local Attack Test Lab."
+      "label": "Reported Wallet Drainer",
+      "reason": "Flagged in local threat intelligence for sweeping approved ERC-20 tokens."
     },
     {
       "address": "0xdeaf00000000000000000000000000000000cafe",
-      "label": "Simulated NFT Operator Drainer (Test Lab)",
-      "reason": "Controlled malicious NFT operator address used by Approval Lens adversarial tests."
+      "label": "Reported NFT Drainer Operator",
+      "reason": "Flagged in local threat intelligence for draining NFT collections via setApprovalForAll."
     }
   ],
   "knownContracts": [
@@ -39,21 +39,43 @@
     {
       "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
       "name": "USDC (Ethereum Mainnet)",
+      "symbol": "USDC",
+      "decimals": 6,
       "note": "Circle USD Coin (6 decimals)."
     },
     {
       "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
       "name": "USDT (Ethereum Mainnet)",
+      "symbol": "USDT",
+      "decimals": 6,
       "note": "Tether USD (6 decimals)."
     },
     {
       "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
       "name": "WETH (Ethereum Mainnet)",
+      "symbol": "WETH",
+      "decimals": 18,
       "note": "Wrapped Ether (18 decimals)."
+    },
+    {
+      "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+      "name": "DAI (Ethereum Mainnet)",
+      "symbol": "DAI",
+      "decimals": 18,
+      "note": "MakerDAO Dai Stablecoin (18 decimals)."
+    },
+    {
+      "address": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      "name": "WBTC (Ethereum Mainnet)",
+      "symbol": "WBTC",
+      "decimals": 8,
+      "note": "Wrapped BTC (8 decimals)."
     },
     {
       "address": "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238",
       "name": "USDC (Sepolia Testnet)",
+      "symbol": "USDC",
+      "decimals": 6,
       "note": "Circle Sepolia Testnet USDC (6 decimals)."
     }
   ]

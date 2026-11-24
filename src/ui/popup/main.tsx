@@ -2,6 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { buildSanitizedReport, renderHtmlReport } from '../../core/report';
 import type { ExtensionSettings, HistoryRecord } from '../../core/types';
+import {
+  LockPrivacyIcon,
+  OpticalCrestBrandmark,
+  OpticalCrestCombo,
+  ThemeToggleIcon,
+  useTheme,
+  VerdictIcon,
+} from '../brand';
 import '../styles.css';
 
 function downloadFile(filename: string, content: string, mimeType: string) {
@@ -15,6 +23,7 @@ function downloadFile(filename: string, content: string, mimeType: string) {
 }
 
 function PopupApp() {
+  const [theme, toggleTheme] = useTheme();
   const [settings, setSettings] = useState<ExtensionSettings>({
     enabled: true,
     rpcEnrichmentEnabled: false,
@@ -62,25 +71,51 @@ function PopupApp() {
   return (
     <main className="popup-shell">
       <header className="header">
-        <div className="brand">
-          <span
-            className="brand-dot"
-            style={{
-              background: settings.enabled ? '#38bdf8' : '#64748b',
-              boxShadow: settings.enabled ? '0 0 10px rgba(56,189,248,0.6)' : 'none',
-            }}
-          />
-          <h1>Approval Lens</h1>
+        <OpticalCrestCombo markSize={23} wordScale={0.74} />
+        <div className="header-controls">
+          <span className={`pill ${settings.enabled ? 'pill-brand' : ''}`}>
+            {settings.enabled ? 'Active' : 'Paused'}
+          </span>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'Pastel Light' : 'Pastel Dark'} mode`}
+          >
+            <ThemeToggleIcon theme={theme} />
+          </button>
         </div>
-        <span className="pill">{settings.enabled ? 'Active' : 'Paused'}</span>
       </header>
+
+      {/* Hero Status Banner */}
+      <section className={`status-banner ${settings.enabled ? '' : 'paused'}`}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <OpticalCrestBrandmark size={26} monochrome={!settings.enabled} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 12.5 }}>
+              {settings.enabled
+                ? 'Intercepting Wallet Approvals'
+                : 'Interception Paused'}
+            </div>
+            <div className="muted" style={{ fontSize: 11 }}>
+              {settings.rpcEnrichmentEnabled
+                ? 'Opt-in RPC enrichment enabled'
+                : '100% Local mode · 0 network calls'}
+            </div>
+          </div>
+        </div>
+        <span className="pill" style={{ fontSize: 10 }}>
+          <LockPrivacyIcon size={11} />
+          {settings.rpcEnrichmentEnabled ? 'RPC On' : 'Local'}
+        </span>
+      </section>
 
       <section className="card">
         <h2 className="card-title">Protection &amp; Privacy Controls</h2>
 
         <label className="toggle-row">
           <span>
-            <strong>Intercept wallet requests</strong>
+            <strong style={{ fontSize: 12.5 }}>Intercept wallet requests</strong>
             <div className="muted" style={{ fontSize: 11 }}>
               Inspect approvals &amp; signatures before MetaMask/Rabby opens
             </div>
@@ -94,9 +129,10 @@ function PopupApp() {
 
         <label className="toggle-row">
           <span>
-            <strong>On-chain RPC enrichment</strong>
+            <strong style={{ fontSize: 12.5 }}>On-chain RPC enrichment</strong>
             <div className="muted" style={{ fontSize: 11 }}>
-              Off = 100% local (0 network requests). On = reads allowance, token info &amp; proxy slot.
+              Off = 100% local (0 network requests). On = reads allowance, token info &amp; proxy
+              slot.
             </div>
           </span>
           <input
@@ -109,20 +145,20 @@ function PopupApp() {
         </label>
 
         {settings.rpcEnrichmentEnabled && (
-          <div style={{ marginTop: 6 }}>
+          <div style={{ marginTop: 8 }}>
             <div className="muted" style={{ fontSize: 11 }}>
               Optional custom RPC URL (leave blank for publicnode defaults)
             </div>
-            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
               <input
                 className="input-text"
-                style={{ marginTop: 0 }}
                 type="url"
                 placeholder="https://ethereum-sepolia-rpc.publicnode.com"
                 value={rpcDraft}
                 onChange={(e) => setRpcDraft(e.target.value)}
               />
               <button
+                type="button"
                 className="btn-ghost"
                 onClick={() => updateSettings({ customRpcUrl: rpcDraft.trim() })}
               >
@@ -133,28 +169,28 @@ function PopupApp() {
         )}
 
         {savedNotice && (
-          <div style={{ color: '#38bdf8', fontSize: 11, marginTop: 6 }}>
+          <div style={{ color: 'var(--brand)', fontSize: 11, marginTop: 6, fontWeight: 600 }}>
             Settings updated.
           </div>
         )}
       </section>
 
       <section className="card" style={{ marginBottom: 0 }}>
-        <div className="header" style={{ marginBottom: 8 }}>
+        <div className="card-title-row" style={{ marginBottom: 8 }}>
           <h2 className="card-title" style={{ margin: 0 }}>
             Session History ({history.length})
           </h2>
           {history.length > 0 && (
-            <button className="btn-ghost" onClick={clearHistory}>
+            <button type="button" className="btn-ghost" onClick={clearHistory}>
               Clear
             </button>
           )}
         </div>
 
         {history.length === 0 ? (
-          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-            No requests inspected in this browser session yet. Trigger a transaction or
-            signature on any dApp (or the local Attack Test Lab) to inspect it here.
+          <p className="muted" style={{ margin: 0, fontSize: 11.5 }}>
+            No requests inspected in this browser session yet. Trigger a transaction or signature
+            on any dApp (or the local Attack Test Lab) to inspect it here.
           </p>
         ) : (
           history.slice(0, 8).map((item) => {
@@ -162,22 +198,38 @@ function PopupApp() {
             return (
               <div className="history-item" key={item.requestId}>
                 <div className="history-top">
-                  <span className="pill">{item.verdict}</span>
                   <span
                     className="pill"
                     style={{
-                      color: item.decision === 'BLOCK' ? '#fca5a5' : '#7dd3fc',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontSize: 10.5,
+                    }}
+                  >
+                    <VerdictIcon verdict={item.verdict} size={12} />
+                    {item.verdict.replace('_', ' ')}
+                  </span>
+                  <span
+                    className="pill"
+                    style={{
+                      fontSize: 10,
+                      color:
+                        item.decision === 'BLOCK' ? 'var(--critical)' : 'var(--understood)',
                     }}
                   >
                     {item.decision}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, marginBottom: 4 }}>{item.headline}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>
+                  {item.headline}
+                </div>
                 <div className="muted mono" style={{ fontSize: 10.5, marginBottom: 6 }}>
-                  {item.origin} · {item.method}
+                  {item.origin.replace(/^https?:\/\//, '')} · {item.method}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button
+                    type="button"
                     className="btn-ghost"
                     onClick={() =>
                       downloadFile(
@@ -187,9 +239,10 @@ function PopupApp() {
                       )
                     }
                   >
-                    JSON
+                    Export JSON
                   </button>
                   <button
+                    type="button"
                     className="btn-ghost"
                     onClick={() =>
                       downloadFile(
@@ -199,7 +252,7 @@ function PopupApp() {
                       )
                     }
                   >
-                    HTML
+                    Export HTML
                   </button>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import { decodeTransaction, shortAddr, type TxLike } from './decoders/calldata';
 import { decodePersonalSign, decodeRawEthSign } from './decoders/messages';
 import { decodeTypedData } from './decoders/typedData';
+import { formatTokenAmount, sortFindingsBySeverity } from './format';
 import {
   checkMaliciousAddress,
   checkMaliciousDomain,
@@ -136,27 +137,33 @@ export async function analyzeRequest(
   }
 
   // 4. Local address reputation checks (check target, spender, recipient, token across all sub-actions)
+  // Deduplicate by normalized address so identical targetContract & tokenAddress (e.g. USDC) never emit duplicate [INFO] cards.
   const checkedAddresses = new Set<string>();
   for (const act of allActions) {
+    const sameTokenAndTarget =
+      Boolean(act.tokenAddress) &&
+      Boolean(act.targetContract) &&
+      act.tokenAddress!.toLowerCase() === act.targetContract!.toLowerCase();
+
     const candidates: Array<{ role: string; address?: string }> = [
       { role: 'spender', address: act.spender },
       { role: 'recipient', address: act.recipient },
+      { role: sameTokenAndTarget ? 'token' : 'token', address: act.tokenAddress },
       { role: 'target contract', address: act.targetContract },
-      { role: 'token', address: act.tokenAddress },
     ];
     for (const { role, address } of candidates) {
       if (!address) continue;
-      const key = `${role}:${address.toLowerCase()}`;
-      if (checkedAddresses.has(key)) continue;
-      checkedAddresses.add(key);
+      const normalizedAddr = address.toLowerCase();
+      if (checkedAddresses.has(normalizedAddr)) continue;
+      checkedAddresses.add(normalizedAddr);
 
       const badAddr = checkMaliciousAddress(address);
       if (badAddr) {
         findings.push({
           id: 'KNOWN_MALICIOUS_ADDRESS',
           severity: 'CRITICAL',
-          title: `Known malicious ${role}: ${badAddr.label}`,
-          explanation: `${badAddr.reason} Address: ${address}`,
+          title: `Malicious ${role}: ${badAddr.label}`,
+          explanation: `${badAddr.reason} (${shortAddr(address)})`,
           source: 'local_reputation',
           details: { role, address },
         });
@@ -300,6 +307,38 @@ export async function analyzeRequest(
     fetchImpl: options.fetchImpl,
   });
 
+  // Fallback to known local token metadata (0 network calls) when RPC metadata is absent
+  const knownToken = lookupKnownContract(primaryToken ?? primaryTarget);
+  if (knownToken) {
+    if (!onChain.tokenSymbol && knownToken.symbol) {
+      onChain.tokenSymbol = knownToken.symbol;
+    }
+    if (onChain.tokenDecimals === undefined && knownToken.decimals !== undefined) {
+      onChain.tokenDecimals = knownToken.decimals;
+    }
+  }
+
+  // Upgrade raw token unit strings in decoded.summary when decimals/symbol are known
+  if (
+    decoded.amountRaw &&
+    !decoded.isUnlimited &&
+    onChain.tokenDecimals !== undefined
+  ) {
+    const humanAmount = formatTokenAmount(
+      decoded.amountRaw,
+      onChain.tokenDecimals,
+      onChain.tokenSymbol,
+      false,
+    );
+    decoded.summary = decoded.summary
+      .replace(`${decoded.amountRaw} raw token units`, humanAmount)
+      .replace(`${decoded.amountRaw} raw units`, humanAmount);
+  } else if (decoded.isUnlimited && onChain.tokenSymbol) {
+    decoded.summary = decoded.summary
+      .replace('UNLIMITED ERC-20', `UNLIMITED ${onChain.tokenSymbol}`)
+      .replace('UNLIMITED token', `UNLIMITED ${onChain.tokenSymbol}`);
+  }
+
   if (!options.rpcEnrichmentEnabled) {
     limitations.push(
       'Local-only mode active: on-chain token metadata, existing allowance, EOA/contract checks, and EIP-1967 proxy resolution were not fetched.',
@@ -367,12 +406,14 @@ export async function analyzeRequest(
     headline = `${decoded.summary} (no known risk flags matched)`;
   }
 
+  const sortedFindings = sortFindingsBySeverity(findings);
+
   return {
     request,
     verdict,
     headline,
     decoded,
-    findings,
+    findings: sortedFindings,
     limitations,
     onChain,
     networkLog,

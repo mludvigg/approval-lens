@@ -5,7 +5,7 @@ export type Verdict =
   | 'UNDERSTOOD'
   | 'UNANALYZED';
 
-export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'INFO';
+export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
 export type EvidenceSource =
   | 'local_decoder'

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="376" height="48" viewBox="0 0 188 24" fill="none">
+  <path d="M3 19L9 5L15 19" stroke="#221E1A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M5.5 14C7.8 15.6 10.2 15.6 12.5 14" stroke="#C26D4A" stroke-width="2" stroke-linecap="round"/>
+  <text x="19" y="18.5" fill="#221E1A" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif" font-weight="700" font-size="14.5" letter-spacing="1.2">PPR</text>
+  <circle cx="64.5" cy="13.2" r="5.3" stroke="#C26D4A" stroke-width="2"/>
+  <path d="M62.5 11.4C63.6 10.4 65.4 10.4 66.5 11.4" stroke="#C26D4A" stroke-width="1.5" stroke-linecap="round"/>
+  <text x="73" y="18.5" fill="#221E1A" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif" font-weight="700" font-size="14.5" letter-spacing="1.2">VAL</text>
+  <text x="115" y="18.5" fill="#C26D4A" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif" font-weight="600" font-size="14.5" letter-spacing="2.4">LENS</text>
+</svg>

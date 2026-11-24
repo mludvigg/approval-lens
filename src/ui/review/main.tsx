@@ -1,32 +1,125 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { formatUnits } from 'viem';
+import {
+  buildPlainEnglishSummary,
+  formatDeadline,
+  formatTokenAmount,
+  sortFindingsBySeverity,
+} from '../../core/format';
+import { checkMaliciousAddress, lookupKnownContract } from '../../core/reputation';
 import { buildSanitizedReport, renderHtmlReport } from '../../core/report';
-import type { InspectionResult, UserDecision } from '../../core/types';
+import type { DecodedAction, InspectionResult, Severity, UserDecision } from '../../core/types';
+import {
+  CheckIcon,
+  ChevronIcon,
+  CopyIcon,
+  LockPrivacyIcon,
+  OpticalCrestBrandmark,
+  OpticalCrestCombo,
+  SeverityIcon,
+  ThemeToggleIcon,
+  useTheme,
+  VerdictIcon,
+} from '../brand';
 import '../styles.css';
 
-const VERDICT_LABELS: Record<InspectionResult['verdict'], string> = {
-  KNOWN_MALICIOUS: 'Known Malicious Indicator',
-  HIGH_RISK: 'High-Risk Permission',
-  REVIEW_NEEDED: 'Review Needed',
-  UNANALYZED: 'Unanalyzed / Opaque Payload',
-  UNDERSTOOD: 'Understood — No Known Flags',
+const SEVERITY_LABELS: Record<Severity, string> = {
+  CRITICAL: 'Critical',
+  HIGH: 'High risk',
+  MEDIUM: 'Review',
+  LOW: 'Low risk',
+  INFO: 'Verified local',
 };
 
-function formatAmount(raw?: string, decimals?: number, symbol?: string, isUnlimited?: boolean): string {
-  if (isUnlimited) {
-    return `UNLIMITED${symbol ? ` ${symbol}` : ''} (raw: ${raw ?? 'MAX'})`;
+function getHumanRequestHeader(
+  decoded: DecodedAction,
+  originHost: string,
+): { title: string; subtitle: string } {
+  switch (decoded.kind) {
+    case 'ERC20_APPROVE':
+    case 'ERC20_INCREASE_ALLOWANCE':
+      return {
+        title: 'Spending cap request',
+        subtitle: `${originHost} wants permission to withdraw your tokens`,
+      };
+    case 'ERC20_DECREASE_ALLOWANCE':
+      return {
+        title: 'Update spending cap',
+        subtitle: `${originHost} is reducing an existing token allowance`,
+      };
+    case 'ERC20_TRANSFER':
+    case 'ERC20_TRANSFER_FROM':
+    case 'NATIVE_TRANSFER':
+      return {
+        title: 'Asset transfer request',
+        subtitle: `${originHost} is requesting a direct transfer from your wallet`,
+      };
+    case 'NFT_SET_APPROVAL_FOR_ALL':
+      return {
+        title: 'NFT collection access request',
+        subtitle: `${originHost} wants operator control over every NFT in this collection`,
+      };
+    case 'NFT_TRANSFER':
+      return {
+        title: 'NFT transfer request',
+        subtitle: `${originHost} wants to transfer a specific NFT`,
+      };
+    case 'EIP2612_PERMIT':
+    case 'PERMIT2_SINGLE':
+    case 'PERMIT2_BATCH':
+    case 'PERMIT2_TRANSFER_FROM':
+      return {
+        title: 'Gasless spending permit',
+        subtitle: `${originHost} is requesting an off-chain token spending signature`,
+      };
+    case 'SEAPORT_ORDER':
+      return {
+        title: 'Marketplace listing signature',
+        subtitle: `${originHost} is requesting an off-chain order authorizing asset transfers`,
+      };
+    case 'MULTICALL':
+      return {
+        title: 'Bundled batch request',
+        subtitle: `${originHost} is bundling ${decoded.subActions?.length ?? 'multiple'} operations in one call`,
+      };
+    case 'RAW_ETH_SIGN':
+      return {
+        title: 'Blind signature request',
+        subtitle: `${originHost} is requesting an unformatted 32-byte hash signature`,
+      };
+    case 'PERSONAL_SIGN':
+      return {
+        title: 'Message signature request',
+        subtitle: `${originHost} is requesting a text signature to verify ownership`,
+      };
+    case 'TYPED_DATA_GENERIC':
+      return {
+        title: 'Structured data signature',
+        subtitle: `${originHost} is requesting an EIP-712 signature with a custom schema`,
+      };
+    case 'UNKNOWN_CALLDATA':
+    default:
+      return {
+        title: 'Unverified contract request',
+        subtitle: `${originHost} is calling a contract function that could not be decoded locally`,
+      };
   }
-  if (!raw) return '—';
-  if (decimals !== undefined) {
-    try {
-      const formatted = formatUnits(BigInt(raw), decimals);
-      return `${formatted}${symbol ? ` ${symbol}` : ''} (raw: ${raw})`;
-    } catch {
-      return raw;
-    }
+}
+
+function getImpactBannerHeadline(result: InspectionResult, riskCount: number): string {
+  switch (result.verdict) {
+    case 'KNOWN_MALICIOUS':
+      return `${riskCount} ${riskCount === 1 ? 'risk' : 'risks'} detected · Known malicious indicator`;
+    case 'HIGH_RISK':
+      return `${riskCount} ${riskCount === 1 ? 'risk' : 'risks'} detected · High-risk permission`;
+    case 'REVIEW_NEEDED':
+      return `${riskCount} ${riskCount === 1 ? 'warning' : 'warnings'} detected · Review carefully`;
+    case 'UNANALYZED':
+      return 'Unverified contract call · Cannot confirm intent';
+    case 'UNDERSTOOD':
+    default:
+      return 'Understood · No known risk flags matched';
   }
-  return `${raw} raw units`;
 }
 
 function downloadFile(filename: string, content: string, mimeType: string) {
@@ -39,11 +132,59 @@ function downloadFile(filename: string, content: string, mimeType: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/**
+ * Split-Contrast Anti-Poisoning Address Display:
+ * Emphasizes the leading 6 chars (0xBAd0) and trailing 4 chars (0Bad) in tabular monospace
+ */
+function SplitAddress({
+  address,
+  danger = false,
+}: {
+  address: string;
+  danger?: boolean;
+}) {
+  if (!address || address.length < 12) {
+    return <span className="addr-split">{address || '—'}</span>;
+  }
+  const edgeClass = danger ? 'addr-edge-danger' : 'addr-edge';
+  return (
+    <span className="addr-split" title={address}>
+      <span className={edgeClass}>{address.slice(0, 6)}</span>
+      <span className="addr-mid">…</span>
+      <span className={edgeClass}>{address.slice(-4)}</span>
+    </span>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1100);
+  };
+
+  return (
+    <button
+      type="button"
+      className="copy-inline-btn"
+      onClick={handleCopy}
+      title={`Copy ${text}`}
+    >
+      {copied ? <CheckIcon size={11} /> : <CopyIcon size={11} />}
+    </button>
+  );
+}
+
 function ReviewApp() {
+  const [theme, toggleTheme] = useTheme();
   const [result, setResult] = useState<InspectionResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [acknowledgedDanger, setAcknowledgedDanger] = useState(false);
+  const [showTechDrawer, setShowTechDrawer] = useState(false);
 
   const requestId = new URLSearchParams(window.location.search).get('id') ?? '';
 
@@ -74,7 +215,14 @@ function ReviewApp() {
   if (loading) {
     return (
       <main className="app-shell">
-        <p className="muted">Analyzing wallet request…</p>
+        <div className="inspection-sheet">
+          <header className="header">
+            <OpticalCrestCombo markSize={22} wordScale={0.74} />
+          </header>
+          <p className="muted" style={{ margin: 0 }}>
+            Inspecting wallet request locally…
+          </p>
+        </div>
       </main>
     );
   }
@@ -82,20 +230,62 @@ function ReviewApp() {
   if (!result) {
     return (
       <main className="app-shell">
-        <div className="card">
-          <h1 style={{ fontSize: 15, marginTop: 0 }}>No active inspection found</h1>
-          <p className="muted">
-            This inspection may have already completed or expired (fail-closed).
-          </p>
+        <div className="inspection-sheet">
+          <header className="header">
+            <OpticalCrestCombo markSize={22} wordScale={0.74} />
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={toggleTheme}
+              title="Switch Pastel Light / Dark theme"
+            >
+              <ThemeToggleIcon theme={theme} />
+            </button>
+          </header>
+          <div className="card">
+            <h1 style={{ fontSize: 15, marginTop: 0 }}>No active inspection found</h1>
+            <p className="muted" style={{ marginBottom: 0 }}>
+              This inspection has already completed or expired (fail-closed protection).
+            </p>
+          </div>
         </div>
       </main>
     );
   }
 
-  const { request, decoded, findings, limitations, onChain, networkLog } = result;
+  const { request, decoded, limitations, onChain, networkLog } = result;
+  const sortedFindings = sortFindingsBySeverity(result.findings);
+  const riskCount = sortedFindings.filter((f) => f.severity !== 'INFO').length;
+  const isUnderstood = result.verdict === 'UNDERSTOOD';
   const requiresDangerAck =
     result.verdict === 'KNOWN_MALICIOUS' ||
-    findings.some((f) => f.severity === 'CRITICAL');
+    sortedFindings.some((f) => f.severity === 'CRITICAL');
+
+  const originHost = request.origin.replace(/^https?:\/\//, '');
+  const reqHeader = getHumanRequestHeader(decoded, originHost);
+  const impactHeadline = getImpactBannerHeadline(result, riskCount);
+  const plainEnglishSummary = buildPlainEnglishSummary(result);
+
+  const humanPermission = formatTokenAmount(
+    decoded.amountRaw,
+    onChain.tokenDecimals,
+    onChain.tokenSymbol,
+    decoded.isUnlimited,
+    false,
+  );
+  const formattedExpiry = decoded.deadline ? formatDeadline(decoded.deadline) : null;
+
+  const counterpartyAddr = decoded.spender ?? decoded.recipient;
+  const badCounterparty = checkMaliciousAddress(counterpartyAddr);
+  const knownCounterparty = lookupKnownContract(counterpartyAddr);
+
+  const contractAddr = decoded.tokenAddress ?? decoded.targetContract;
+  const knownContract = lookupKnownContract(contractAddr);
+
+  const sameTargetAndToken =
+    Boolean(decoded.targetContract) &&
+    Boolean(decoded.tokenAddress) &&
+    decoded.targetContract!.toLowerCase() === decoded.tokenAddress!.toLowerCase();
 
   const handleExportJson = () => {
     const report = buildSanitizedReport(result);
@@ -115,256 +305,365 @@ function ReviewApp() {
     );
   };
 
-  return (
-    <main className="app-shell">
-      <header className="header">
-        <div className="brand">
-          <span className="brand-dot" />
-          <h1>Approval Lens</h1>
-        </div>
-        <span className="pill">{request.walletName ?? 'EIP-1193'}</span>
-      </header>
+  const renderForensicKeyValueGrid = () => (
+    <>
+      <div className="kv-grid" style={{ marginBottom: 10 }}>
+        <span className="kv-label">Verified origin</span>
+        <span className="kv-val mono">{request.origin}</span>
 
-      <section className={`verdict-banner verdict-${result.verdict}`}>
-        <div className="verdict-tag">{VERDICT_LABELS[result.verdict]}</div>
-        <p className="verdict-headline">{result.headline}</p>
-      </section>
+        {request.topLevelOrigin && (
+          <>
+            <span className="kv-label">Top-level page</span>
+            <span className="kv-val mono">{request.topLevelOrigin}</span>
+          </>
+        )}
 
-      <section className="card">
-        <h2 className="card-title">Request Context</h2>
-        <div className="kv-grid">
-          <span className="kv-label">Verified Origin</span>
-          <span className="kv-val mono">{request.origin}</span>
+        <span className="kv-label">RPC method</span>
+        <span className="kv-val mono">{request.method}</span>
 
-          {request.topLevelOrigin && (
-            <>
-              <span className="kv-label">Top-Level Page</span>
-              <span className="kv-val mono">{request.topLevelOrigin}</span>
-            </>
-          )}
+        <span className="kv-label">Decoded ABI</span>
+        <span className="kv-val mono">{decoded.functionName ?? decoded.kind}</span>
 
-          <span className="kv-label">RPC Method</span>
-          <span className="kv-val mono">{request.method}</span>
+        {decoded.targetContract && (
+          <>
+            <span className="kv-label">
+              {sameTargetAndToken ? 'Token & target' : 'Target contract'}
+            </span>
+            <span className="kv-val mono">{decoded.targetContract}</span>
+          </>
+        )}
 
-          <span className="kv-label">Action Type</span>
-          <span className="kv-val mono">
-            {decoded.functionName ?? decoded.kind}
-          </span>
+        {decoded.tokenAddress && !sameTargetAndToken && (
+          <>
+            <span className="kv-label">Token contract</span>
+            <span className="kv-val mono">{decoded.tokenAddress}</span>
+          </>
+        )}
 
-          {decoded.targetContract && (
-            <>
-              <span className="kv-label">Target Contract</span>
-              <span className="kv-val mono">{decoded.targetContract}</span>
-            </>
-          )}
+        {decoded.spender && (
+          <>
+            <span className="kv-label">Spender address</span>
+            <span className="kv-val mono">{decoded.spender}</span>
+          </>
+        )}
 
-          {decoded.tokenAddress && decoded.tokenAddress !== decoded.targetContract && (
-            <>
-              <span className="kv-label">Token</span>
-              <span className="kv-val mono">{decoded.tokenAddress}</span>
-            </>
-          )}
+        {decoded.recipient && (
+          <>
+            <span className="kv-label">Recipient address</span>
+            <span className="kv-val mono">{decoded.recipient}</span>
+          </>
+        )}
 
-          {decoded.spender && (
-            <>
-              <span className="kv-label">Spender / Operator</span>
-              <span className="kv-val mono">{decoded.spender}</span>
-            </>
-          )}
+        {decoded.amountRaw !== undefined && (
+          <>
+            <span className="kv-label">Raw token units</span>
+            <span className="kv-val mono">{decoded.amountRaw}</span>
+          </>
+        )}
 
-          {decoded.recipient && (
-            <>
-              <span className="kv-label">Recipient</span>
-              <span className="kv-val mono">{decoded.recipient}</span>
-            </>
-          )}
+        {decoded.deadline && (
+          <>
+            <span className="kv-label">Raw deadline</span>
+            <span className="kv-val mono">
+              {decoded.deadline} ({formatDeadline(decoded.deadline)})
+            </span>
+          </>
+        )}
 
-          {(decoded.amountRaw !== undefined || decoded.isUnlimited) && (
-            <>
-              <span className="kv-label">New Permission</span>
-              <span className="kv-val">
-                {formatAmount(
-                  decoded.amountRaw,
-                  onChain.tokenDecimals,
-                  onChain.tokenSymbol,
-                  decoded.isUnlimited,
-                )}
-              </span>
-            </>
-          )}
-
-          {onChain.currentAllowanceRaw !== undefined && (
-            <>
-              <span className="kv-label">Previous Allowance</span>
-              <span className="kv-val">
-                {formatAmount(
-                  onChain.currentAllowanceRaw,
-                  onChain.tokenDecimals,
-                  onChain.tokenSymbol,
-                  false,
-                )}
-              </span>
-            </>
-          )}
-
-          {decoded.deadline && (
-            <>
-              <span className="kv-label">Deadline / Expiry</span>
-              <span className="kv-val mono">{decoded.deadline}</span>
-            </>
-          )}
-
-          <span className="kv-label">Frozen SHA-256</span>
-          <span className="kv-val mono">{request.payloadHash.slice(0, 24)}…</span>
-        </div>
-      </section>
-
-      {decoded.subActions && decoded.subActions.length > 0 && (
-        <section className="card">
-          <h2 className="card-title">
-            Nested Operations ({decoded.subActions.length})
-          </h2>
-          {decoded.subActions.map((sub, idx) => (
-            <div className="sub-call" key={idx}>
-              <div>
-                <strong>#{idx + 1}</strong> <code>{sub.functionName ?? sub.kind}</code>
-              </div>
-              <div className="muted">{sub.summary}</div>
-              {sub.spender && (
-                <div>
-                  Spender: <code>{sub.spender}</code>
-                </div>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
+        <span className="kv-label">Frozen SHA-256</span>
+        <span className="kv-val mono">{request.payloadHash}</span>
+      </div>
 
       {decoded.rawPreview && (
-        <section className="card">
-          <h2 className="card-title">Payload Preview</h2>
-          <code>{decoded.rawPreview}</code>
-        </section>
-      )}
-
-      {onChain.rpcEnabled && (
-        <section className="card">
-          <h2 className="card-title">On-Chain Context</h2>
-          <div className="kv-grid">
-            <span className="kv-label">Token Metadata</span>
-            <span className="kv-val">
-              {onChain.tokenSymbol
-                ? `${onChain.tokenSymbol} (${onChain.tokenDecimals ?? '?'} decimals)`
-                : 'Not resolved'}
-            </span>
-            <span className="kv-label">Spender Type</span>
-            <span className="kv-val">
-              {onChain.spenderIsContract === true
-                ? 'Smart Contract'
-                : onChain.spenderIsContract === false
-                  ? 'EOA (Regular Wallet — Unusual Spender)'
-                  : 'Not checked'}
-            </span>
-            <span className="kv-label">EIP-1967 Proxy</span>
-            <span className="kv-val mono">
-              {onChain.targetIsProxy
-                ? `Yes -> ${onChain.proxyImplementation}`
-                : onChain.targetIsProxy === false
-                  ? 'No EIP-1967 proxy slot'
-                  : 'Not checked'}
-            </span>
+        <div style={{ marginBottom: 10 }}>
+          <div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>
+            Payload preview
           </div>
-        </section>
+          <code>{decoded.rawPreview}</code>
+        </div>
       )}
 
-      <section className="card">
-        <h2 className="card-title">Findings &amp; Evidence ({findings.length})</h2>
-        {findings.length === 0 ? (
-          <p className="muted" style={{ margin: 0 }}>
-            No local risk rules matched. Still verify the website URL and recipient before signing.
-          </p>
-        ) : (
-          findings.map((f, i) => (
-            <div className={`finding-item finding-${f.severity}`} key={`${f.id}-${i}`}>
-              <div className="finding-head">
-                <span className="finding-title">
-                  [{f.severity}] {f.title}
-                </span>
-                <span className="source-chip">{f.source}</span>
-              </div>
-              <p className="finding-desc">{f.explanation}</p>
-            </div>
-          ))
-        )}
-      </section>
+      <div className="section-header-row" style={{ marginTop: 8 }}>
+        <span className="section-eyebrow">
+          Network &amp; privacy audit ({networkLog.length})
+        </span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className="btn-ghost" onClick={handleExportJson}>
+            Export JSON
+          </button>
+          <button type="button" className="btn-ghost" onClick={handleExportHtml}>
+            Export HTML
+          </button>
+        </div>
+      </div>
 
-      <section className="card">
-        <h2 className="card-title">What Was NOT Analyzed</h2>
+      <ul className="list-plain">
+        {networkLog.map((entry, idx) => (
+          <li key={idx}>
+            <code>[{entry.status}]</code> <code>{entry.target}</code> — {entry.purpose}
+            {entry.detail ? ` (${entry.detail})` : ''}
+          </li>
+        ))}
+      </ul>
+
+      <div
+        style={{
+          marginTop: 10,
+          paddingTop: 8,
+          borderTop: '1px solid var(--divider)',
+        }}
+      >
+        <div className="section-eyebrow" style={{ marginBottom: 4 }}>
+          What Was NOT Analyzed
+        </div>
         <ul className="list-plain">
           {limitations.map((item, idx) => (
             <li key={idx}>{item}</li>
           ))}
         </ul>
-      </section>
+      </div>
+    </>
+  );
 
-      <section className="card">
-        <div className="header" style={{ marginBottom: 6 }}>
-          <h2 className="card-title" style={{ margin: 0 }}>
-            Network &amp; Privacy Log ({networkLog.length})
-          </h2>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn-ghost" onClick={handleExportJson}>
-              Export JSON
-            </button>
-            <button className="btn-ghost" onClick={handleExportHtml}>
-              Export HTML
+  return (
+    <main className="app-shell">
+      <div className="inspection-sheet">
+        {/* Top Bar with Optical Crest Combination Mark */}
+        <header className="header">
+          <OpticalCrestCombo markSize={22} wordScale={0.74} />
+          <div className="header-controls">
+            <span className="pill pill-brand" title="Local static analysis by default">
+              <LockPrivacyIcon size={11} />
+              {onChain.rpcEnabled ? 'RPC Enriched' : 'Local · 0 RPC'}
+            </span>
+            <span className="pill">{request.walletName ?? 'EIP-1193'}</span>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'dark' ? 'Pastel Light' : 'Pastel Dark'} mode`}
+            >
+              <ThemeToggleIcon theme={theme} />
             </button>
           </div>
-        </div>
-        <ul className="list-plain">
-          {networkLog.map((entry, idx) => (
-            <li key={idx}>
-              <code>[{entry.status}]</code> <code>{entry.target}</code> — {entry.purpose}
-              {entry.detail ? ` (${entry.detail})` : ''}
-            </li>
-          ))}
-        </ul>
-        <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-          Local intel bundle: <code>{result.reputationVersion}</code>
-        </div>
-      </section>
+        </header>
 
-      <footer className="actions-bar">
-        {requiresDangerAck && (
-          <label className="ack-box">
-            <input
-              type="checkbox"
-              checked={acknowledgedDanger}
-              onChange={(e) => setAcknowledgedDanger(e.target.checked)}
-            />
-            <span>
-              I understand this request triggered a <strong>CRITICAL</strong> warning and
-              may drain my assets if signed.
-            </span>
-          </label>
-        )}
-        <div className="btn-row">
-          <button
-            className="btn-block"
-            disabled={submitting}
-            onClick={() => submitDecision('BLOCK')}
-          >
-            Block Request
-          </button>
-          <button
-            className="btn-allow"
-            disabled={submitting || (requiresDangerAck && !acknowledgedDanger)}
-            onClick={() => submitDecision('ALLOW')}
-          >
-            Proceed to Wallet
-          </button>
+        {/* Request Intent Title + Primary Permission Badge */}
+        <div className="request-title-bar">
+          <div>
+            <h1 className="request-title-main">{reqHeader.title}</h1>
+            <p className="request-title-sub">{reqHeader.subtitle}</p>
+          </div>
+          {humanPermission !== '—' ? (
+            <div
+              className={`amount-badge ${
+                result.verdict === 'KNOWN_MALICIOUS'
+                  ? 'amount-badge-danger'
+                  : decoded.isUnlimited
+                    ? 'amount-badge-high'
+                    : ''
+              }`}
+            >
+              <OpticalCrestBrandmark size={15} />
+              <span>{humanPermission}</span>
+            </div>
+          ) : (
+            <OpticalCrestBrandmark size={26} />
+          )}
         </div>
-      </footer>
+
+        {/* Responsive Workspace Grid: 1-Col in Compact Popup, 2-Col Workbench in Expanded Mode */}
+        <div className="workspace-grid">
+          {/* LEFT COLUMN: Unified Decision Card + Borderless Findings List */}
+          <div className="workspace-col">
+            <section className={`decision-card verdict-${result.verdict}`}>
+              {/* Tinted Verdict & Consequence Strip */}
+              <div className="impact-strip">
+                <div className="crest-watermark">
+                  <OpticalCrestBrandmark size={84} monochrome />
+                </div>
+                <div className="impact-header">
+                  <VerdictIcon verdict={result.verdict} size={15} />
+                  <span>{impactHeadline}</span>
+                </div>
+                <p className="impact-body">{plainEnglishSummary}</p>
+              </div>
+
+              {/* Hairline Key-Value Ledger Inside the Same Unified Card */}
+              <div className="detail-ledger">
+                {counterpartyAddr && (
+                  <div className="detail-row">
+                    <span className="detail-label">
+                      {decoded.spender ? 'Spender' : 'Recipient'}
+                    </span>
+                    <span className="detail-val">
+                      {badCounterparty ? (
+                        <span className="inline-flag">Malicious drainer</span>
+                      ) : knownCounterparty ? (
+                        <span>{knownCounterparty.name.split(' (')[0]}</span>
+                      ) : null}
+                      <SplitAddress
+                        address={counterpartyAddr}
+                        danger={Boolean(badCounterparty)}
+                      />
+                      <CopyButton text={counterpartyAddr} />
+                    </span>
+                  </div>
+                )}
+
+                {contractAddr && (
+                  <div className="detail-row">
+                    <span className="detail-label">
+                      {onChain.tokenSymbol ? 'Token contract' : 'Interacting with'}
+                    </span>
+                    <span className="detail-val">
+                      {knownContract && <OpticalCrestBrandmark size={14} />}
+                      {knownContract && <span>{knownContract.name.split(' (')[0]}</span>}
+                      <SplitAddress address={contractAddr} />
+                      <CopyButton text={contractAddr} />
+                    </span>
+                  </div>
+                )}
+
+                {formattedExpiry && (
+                  <div className="detail-row">
+                    <span className="detail-label">Deadline / Expiry</span>
+                    <span className="detail-val">{formattedExpiry}</span>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Nested Multicall / Batch Operations (when applicable) */}
+            {decoded.subActions && decoded.subActions.length > 0 && (
+              <section className="findings-section">
+                <div className="section-header-row">
+                  <h2 className="section-eyebrow">
+                    Nested operations ({decoded.subActions.length})
+                  </h2>
+                </div>
+                {decoded.subActions.map((sub, idx) => (
+                  <div className="sub-call" key={idx}>
+                    <strong>#{idx + 1}</strong> {sub.summary}
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* Borderless Security Findings Ledger */}
+            <section className="findings-section">
+              <div className="section-header-row">
+                <h2 className="section-eyebrow">
+                  Security evidence ({sortedFindings.length})
+                </h2>
+                <button
+                  type="button"
+                  className="text-link-btn compact-only"
+                  onClick={() => setShowTechDrawer((prev) => !prev)}
+                  aria-expanded={showTechDrawer}
+                >
+                  <span>
+                    {showTechDrawer ? 'Hide technical proof' : 'Technical proof & scope'}
+                  </span>
+                  <ChevronIcon open={showTechDrawer} size={13} />
+                </button>
+              </div>
+
+              {sortedFindings.length === 0 ? (
+                <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                  No local risk rules matched. Always verify the website domain and recipient
+                  before signing.
+                </p>
+              ) : (
+                <div className="findings-stack">
+                  {sortedFindings.map((f, i) => (
+                    <div className={`finding-row finding-${f.severity}`} key={`${f.id}-${i}`}>
+                      <div className="finding-head">
+                        <div className="finding-title-wrap">
+                          <SeverityIcon severity={f.severity} size={15} />
+                          <span className="finding-title">{f.title}</span>
+                        </div>
+                        <span className="sev-label">{SEVERITY_LABELS[f.severity]}</span>
+                      </div>
+                      <p className="finding-desc">{f.explanation}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Compact Mode: Spatially Continuous CSS-Grid Drawer + Quiet 1-Line Scope Summary */}
+              <div className="compact-only">
+                <div className={`drawer-grid ${showTechDrawer ? 'open' : ''}`}>
+                  <div className="drawer-inner">
+                    <div className="forensic-ledger" style={{ marginTop: 8 }}>
+                      {renderForensicKeyValueGrid()}
+                    </div>
+                  </div>
+                </div>
+                {!showTechDrawer && (
+                  <div className="compact-scope-line" title={limitations.join(' ')}>
+                    <span>⊘ No EVM simulation</span>
+                    <span>·</span>
+                    <span>⊘ Never 100% safe</span>
+                    <span>·</span>
+                    <span>
+                      {onChain.rpcEnabled ? '🌐 Opt-in RPC active' : '🔒 0 network calls'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+
+          {/* RIGHT COLUMN (Expanded Mode >= 720px): Always-Open Forensic Evidence & Scope Ledger */}
+          <div className="workspace-col expanded-only">
+            <section className="forensic-ledger">
+              <div className="forensic-header">
+                <h2 className="forensic-title">Forensic Evidence &amp; Scope Ledger</h2>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--brand)' }}>
+                  SHA-256 Frozen
+                </span>
+              </div>
+              {renderForensicKeyValueGrid()}
+            </section>
+          </div>
+        </div>
+
+        {/* Context-Aware Decision Footer */}
+        <footer className="actions-bar">
+          {requiresDangerAck && (
+            <label className="ack-box">
+              <input
+                type="checkbox"
+                checked={acknowledgedDanger}
+                onChange={(e) => setAcknowledgedDanger(e.target.checked)}
+              />
+              <span>
+                I understand this request triggered a critical warning and may drain my assets
+                if signed.
+              </span>
+            </label>
+          )}
+          <div className="btn-row">
+            <button
+              type="button"
+              className={isUnderstood ? 'btn-block-calm' : 'btn-block-danger'}
+              disabled={submitting}
+              onClick={() => submitDecision('BLOCK')}
+            >
+              {isUnderstood ? 'Block request' : 'Block request (Recommended)'}
+            </button>
+            <button
+              type="button"
+              className={isUnderstood ? 'btn-allow-brand' : 'btn-allow-cautious'}
+              disabled={submitting || (requiresDangerAck && !acknowledgedDanger)}
+              onClick={() => submitDecision('ALLOW')}
+            >
+              Proceed to wallet
+            </button>
+          </div>
+        </footer>
+      </div>
     </main>
   );
 }

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { encodeFunctionData, maxUint256, parseAbi, type Address } from 'viem';
 import { analyzeRequest } from '../src/core/analyzer';
+import {
+  buildPlainEnglishSummary,
+  formatDeadline,
+  formatTokenAmount,
+} from '../src/core/format';
 import type { InspectionRequest } from '../src/core/types';
 
 const ERC20_ABI = parseAbi([
@@ -302,5 +307,103 @@ describe('Approval Lens Core Analyzer', () => {
     expect(result.findings.some((f) => f.id === 'EIP1967_PROXY_CONTRACT')).toBe(true);
     expect(result.networkLog.length).toBeGreaterThanOrEqual(4);
     expect(result.networkLog.every((l) => l.target === 'rpc.example.test')).toBe(true);
+  });
+
+  it('sorts findings strictly by severity (CRITICAL -> HIGH -> MEDIUM -> LOW -> INFO)', async () => {
+    const data = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [MALICIOUS_SPENDER, maxUint256],
+    });
+
+    const result = await analyzeRequest(
+      makeRequest({
+        params: [{ from: USER_WALLET, to: USDC_MAINNET, data }],
+      }),
+    );
+
+    const severities = result.findings.map((f) => f.severity);
+    expect(severities[0]).toBe('CRITICAL');
+    expect(severities).toEqual(['CRITICAL', 'HIGH', 'INFO']);
+  });
+
+  it('does not duplicate [INFO] cards when targetContract and tokenAddress are the same address', async () => {
+    const data = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [BENIGN_SPENDER, 100_000_000n],
+    });
+
+    const result = await analyzeRequest(
+      makeRequest({
+        params: [{ from: USER_WALLET, to: USDC_MAINNET, data }],
+      }),
+    );
+
+    const infoFindings = result.findings.filter((f) => f.id === 'KNOWN_CONTRACT_LABEL');
+    expect(infoFindings).toHaveLength(1);
+    expect(infoFindings[0].title).toContain('USDC');
+  });
+
+  it('formats token amounts in human-readable units using known local decimals with 0 network calls', async () => {
+    const data = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [BENIGN_SPENDER, 100_000_000n], // 100 USDC (6 decimals)
+    });
+
+    const result = await analyzeRequest(
+      makeRequest({
+        params: [{ from: USER_WALLET, to: USDC_MAINNET, data }],
+      }),
+    );
+
+    expect(result.onChain.tokenSymbol).toBe('USDC');
+    expect(result.onChain.tokenDecimals).toBe(6);
+    expect(
+      formatTokenAmount(
+        result.decoded.amountRaw,
+        result.onChain.tokenDecimals,
+        result.onChain.tokenSymbol,
+        result.decoded.isUnlimited,
+      ),
+    ).toBe('100 USDC');
+    expect(result.headline).toContain('100 USDC');
+  });
+
+  it('formats Unix timestamps in Deadline / Expiry as readable dates', () => {
+    expect(formatDeadline('1899936000')).toBe('Mar 17, 2030');
+    expect(formatDeadline('281474976710655')).toBe('Never expires');
+  });
+
+  it('builds a clear plain-English "What happens if you sign this?" summary', async () => {
+    const typedData = JSON.stringify({
+      primaryType: 'Permit',
+      domain: {
+        name: 'USD Coin',
+        version: '2',
+        chainId: 1,
+        verifyingContract: USDC_MAINNET,
+      },
+      message: {
+        owner: USER_WALLET,
+        spender: BENIGN_SPENDER,
+        value: '100000000',
+        nonce: 0,
+        deadline: 1899936000,
+      },
+    });
+
+    const result = await analyzeRequest(
+      makeRequest({
+        method: 'eth_signTypedData_v4',
+        params: [USER_WALLET, typedData],
+      }),
+    );
+
+    const summary = buildPlainEnglishSummary(result);
+    expect(summary).toContain('100 USDC');
+    expect(summary).toContain('Mar 17, 2030');
+    expect(summary).toContain('0x2222…2222');
   });
 });

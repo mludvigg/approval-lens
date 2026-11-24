@@ -112,7 +112,7 @@ chrome.windows.onRemoved.addListener((closedWindowId) => {
 });
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.info('[Approval Lens] Service worker ready (v0.2.5)');
+  console.info('[Approval Lens] Service worker ready (v0.3.0)');
 });
 
 chrome.runtime.onMessage.addListener(

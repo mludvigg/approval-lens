@@ -1,0 +1,1134 @@
+{
+  "version": "0.3.0",
+  "evaluatedAt": "2026-11-24T22:45:45.703Z",
+  "totalFixtures": 64,
+  "attackTotal": 32,
+  "benignTotal": 32,
+  "standardBenignTotal": 26,
+  "complexBenignTotal": 6,
+  "silentMisses": 0,
+  "protectiveInterceptCount": 32,
+  "protectiveRecallPct": 100,
+  "explicitThreatCount": 30,
+  "explicitThreatRecallAllAttacksPct": 93.75,
+  "standardBenignCleanCount": 26,
+  "standardBenignFalseAlarmRatePct": 0,
+  "overallBenignFrictionCount": 6,
+  "overallBenignFrictionRatePct": 18.75,
+  "decodedCount": 61,
+  "decodeCoveragePct": 95.31,
+  "exactVerdictMatchCount": 64,
+  "latency": {
+    "meanMs": 0.15,
+    "p50Ms": 0.03,
+    "p95Ms": 0.54,
+    "maxMs": 2.1
+  },
+  "categories": [
+    {
+      "category": "ERC-20 Token Drainers",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "total": 6,
+      "matchedExpected": 6,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 2,
+        "HIGH_RISK": 4,
+        "REVIEW_NEEDED": 0,
+        "UNDERSTOOD": 0,
+        "UNANALYZED": 0
+      }
+    },
+    {
+      "category": "NFT & Seaport Drainers",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "total": 4,
+      "matchedExpected": 4,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 2,
+        "HIGH_RISK": 2,
+        "REVIEW_NEEDED": 0,
+        "UNDERSTOOD": 0,
+        "UNANALYZED": 0
+      }
+    },
+    {
+      "category": "Blur Marketplace Drains",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "total": 3,
+      "matchedExpected": 3,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 0,
+        "HIGH_RISK": 3,
+        "REVIEW_NEEDED": 0,
+        "UNDERSTOOD": 0,
+        "UNANALYZED": 0
+      }
+    },
+    {
+      "category": "Gasless Permit & Permit2",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "total": 6,
+      "matchedExpected": 6,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 1,
+        "HIGH_RISK": 5,
+        "REVIEW_NEEDED": 0,
+        "UNDERSTOOD": 0,
+        "UNANALYZED": 0
+      }
+    },
+    {
+      "category": "Multicall Obfuscation",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "total": 5,
+      "matchedExpected": 5,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 1,
+        "HIGH_RISK": 4,
+        "REVIEW_NEEDED": 0,
+        "UNDERSTOOD": 0,
+        "UNANALYZED": 0
+      }
+    },
+    {
+      "category": "Phishing & Blind Signing",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "total": 6,
+      "matchedExpected": 6,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 3,
+        "HIGH_RISK": 3,
+        "REVIEW_NEEDED": 0,
+        "UNDERSTOOD": 0,
+        "UNANALYZED": 0
+      }
+    },
+    {
+      "category": "Adversarial Evasion",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "total": 2,
+      "matchedExpected": 2,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 0,
+        "HIGH_RISK": 0,
+        "REVIEW_NEEDED": 1,
+        "UNDERSTOOD": 0,
+        "UNANALYZED": 1
+      }
+    },
+    {
+      "category": "Capped Approvals & Revokes",
+      "groundTruth": "BENIGN",
+      "total": 10,
+      "matchedExpected": 10,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 0,
+        "HIGH_RISK": 0,
+        "REVIEW_NEEDED": 0,
+        "UNDERSTOOD": 10,
+        "UNANALYZED": 0
+      }
+    },
+    {
+      "category": "NFT Revokes & Direct Transfers",
+      "groundTruth": "BENIGN",
+      "total": 8,
+      "matchedExpected": 8,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 0,
+        "HIGH_RISK": 0,
+        "REVIEW_NEEDED": 0,
+        "UNDERSTOOD": 8,
+        "UNANALYZED": 0
+      }
+    },
+    {
+      "category": "Benign Batches & SIWE Logins",
+      "groundTruth": "BENIGN",
+      "total": 8,
+      "matchedExpected": 8,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 0,
+        "HIGH_RISK": 0,
+        "REVIEW_NEEDED": 0,
+        "UNDERSTOOD": 8,
+        "UNANALYZED": 0
+      }
+    },
+    {
+      "category": "Complex Protocol Actions (Defensive Friction)",
+      "groundTruth": "BENIGN",
+      "total": 6,
+      "matchedExpected": 6,
+      "verdictCounts": {
+        "KNOWN_MALICIOUS": 0,
+        "HIGH_RISK": 2,
+        "REVIEW_NEEDED": 2,
+        "UNDERSTOOD": 0,
+        "UNANALYZED": 2
+      }
+    }
+  ],
+  "rows": [
+    {
+      "id": "ATK-01",
+      "category": "ERC-20 Token Drainers",
+      "name": "Unlimited USDC approve(MAX_UINT256) to unknown spender",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "UNLIMITED_ERC20_APPROVAL",
+      "latencyMs": 1.31
+    },
+    {
+      "id": "ATK-02",
+      "category": "ERC-20 Token Drainers",
+      "name": "Unlimited USDC approve to known malicious drainer (0xbad0…0bad)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "KNOWN_MALICIOUS"
+      ],
+      "actualVerdict": "KNOWN_MALICIOUS",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_MALICIOUS_ADDRESS",
+      "latencyMs": 0.09
+    },
+    {
+      "id": "ATK-03",
+      "category": "ERC-20 Token Drainers",
+      "name": "Near-unlimited USDT increaseAllowance(2^255)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_INCREASE_ALLOWANCE",
+      "topFindingId": "UNLIMITED_ERC20_APPROVAL",
+      "latencyMs": 0.05
+    },
+    {
+      "id": "ATK-04",
+      "category": "ERC-20 Token Drainers",
+      "name": "ERC-20 approve directed to burn address (0x0000…dead)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "KNOWN_MALICIOUS"
+      ],
+      "actualVerdict": "KNOWN_MALICIOUS",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_MALICIOUS_ADDRESS",
+      "latencyMs": 0.17
+    },
+    {
+      "id": "ATK-05",
+      "category": "ERC-20 Token Drainers",
+      "name": "Capped ERC-20 approve to personal EOA wallet (RPC EOA check)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "EOA_SPENDER_DETECTED",
+      "latencyMs": 2.1
+    },
+    {
+      "id": "ATK-06",
+      "category": "ERC-20 Token Drainers",
+      "name": "On-chain Permit2 approve(token, spender, MAX_UINT160, expiration)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "UNLIMITED_ERC20_APPROVAL",
+      "latencyMs": 0.4
+    },
+    {
+      "id": "ATK-07",
+      "category": "NFT & Seaport Drainers",
+      "name": "ERC-721 setApprovalForAll(true) to known NFT drainer",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "KNOWN_MALICIOUS"
+      ],
+      "actualVerdict": "KNOWN_MALICIOUS",
+      "matchedExpected": true,
+      "decodedKind": "NFT_SET_APPROVAL_FOR_ALL",
+      "topFindingId": "KNOWN_MALICIOUS_ADDRESS",
+      "latencyMs": 0.31
+    },
+    {
+      "id": "ATK-08",
+      "category": "NFT & Seaport Drainers",
+      "name": "ERC-1155 setApprovalForAll(true) to unverified operator",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "NFT_SET_APPROVAL_FOR_ALL",
+      "topFindingId": "NFT_APPROVAL_FOR_ALL",
+      "latencyMs": 0.05
+    },
+    {
+      "id": "ATK-09",
+      "category": "NFT & Seaport Drainers",
+      "name": "Seaport 1.6 OrderComponents offering 1 NFT for empty consideration",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "SEAPORT_ORDER",
+      "topFindingId": "SEAPORT_ZERO_CONSIDERATION_DRAIN",
+      "latencyMs": 0.26
+    },
+    {
+      "id": "ATK-10",
+      "category": "NFT & Seaport Drainers",
+      "name": "Seaport 1.5 multi-NFT sweep routing 100% of consideration to drainer",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "KNOWN_MALICIOUS"
+      ],
+      "actualVerdict": "KNOWN_MALICIOUS",
+      "matchedExpected": true,
+      "decodedKind": "SEAPORT_ORDER",
+      "topFindingId": "KNOWN_MALICIOUS_ADDRESS",
+      "latencyMs": 0.05
+    },
+    {
+      "id": "ATK-11",
+      "category": "Blur Marketplace Drains",
+      "name": "Blur Order selling NFT for 0 ETH",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "BLUR_ORDER",
+      "topFindingId": "BLUR_ZERO_PRICE_DRAIN",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "ATK-12",
+      "category": "Blur Marketplace Drains",
+      "name": "Blur Order selling NFT for 500 wei dust",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "BLUR_ORDER",
+      "topFindingId": "BLUR_ZERO_PRICE_DRAIN",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "ATK-13",
+      "category": "Blur Marketplace Drains",
+      "name": "Blur BulkOrderRoot blind Merkle tree signature",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "BLUR_ORDER",
+      "topFindingId": "BLUR_BULK_ROOT_SIGNATURE",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "ATK-14",
+      "category": "Gasless Permit & Permit2",
+      "name": "EIP-2612 Permit unlimited USDC allowance",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "EIP2612_PERMIT",
+      "topFindingId": "GASLESS_PERMIT_UNLIMITED",
+      "latencyMs": 0.04
+    },
+    {
+      "id": "ATK-15",
+      "category": "Gasless Permit & Permit2",
+      "name": "DAI-style Permit (allowed: true) unlimited approval",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "EIP2612_PERMIT",
+      "topFindingId": "GASLESS_PERMIT_UNLIMITED",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "ATK-16",
+      "category": "Gasless Permit & Permit2",
+      "name": "EIP-2612 Permit chainId mismatch (Mainnet signature while on Sepolia)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "EIP2612_PERMIT",
+      "topFindingId": "EIP712_CHAIN_MISMATCH",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "ATK-17",
+      "category": "Gasless Permit & Permit2",
+      "name": "Permit2 PermitSingle unlimited allowance to drainer",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "KNOWN_MALICIOUS"
+      ],
+      "actualVerdict": "KNOWN_MALICIOUS",
+      "matchedExpected": true,
+      "decodedKind": "PERMIT2_SINGLE",
+      "topFindingId": "KNOWN_MALICIOUS_ADDRESS",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "ATK-18",
+      "category": "Gasless Permit & Permit2",
+      "name": "Permit2 PermitBatch multi-token sweep (USDC + USDT + WETH)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "PERMIT2_BATCH",
+      "topFindingId": "PERMIT2_UNLIMITED",
+      "latencyMs": 0.06
+    },
+    {
+      "id": "ATK-19",
+      "category": "Gasless Permit & Permit2",
+      "name": "Permit2 PermitTransferFrom immediate signature sweep",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "PERMIT2_TRANSFER_FROM",
+      "topFindingId": "PERMIT2_SIGNATURE",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "ATK-20",
+      "category": "Multicall Obfuscation",
+      "name": "multicall(bytes[]) hiding unlimited ERC-20 approve behind small transfer",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "MULTICALL",
+      "topFindingId": "MULTICALL_HIDDEN_UNLIMITED_APPROVAL",
+      "latencyMs": 0.19
+    },
+    {
+      "id": "ATK-21",
+      "category": "Multicall Obfuscation",
+      "name": "multicall(deadline,bytes[]) hiding NFT setApprovalForAll(true)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "MULTICALL",
+      "topFindingId": "NFT_APPROVAL_FOR_ALL",
+      "latencyMs": 0.15
+    },
+    {
+      "id": "ATK-22",
+      "category": "Multicall Obfuscation",
+      "name": "Multicall3.aggregate3 cross-contract hidden drainer approval",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "KNOWN_MALICIOUS"
+      ],
+      "actualVerdict": "KNOWN_MALICIOUS",
+      "matchedExpected": true,
+      "decodedKind": "MULTICALL",
+      "topFindingId": "KNOWN_MALICIOUS_ADDRESS",
+      "latencyMs": 0.22
+    },
+    {
+      "id": "ATK-23",
+      "category": "Multicall Obfuscation",
+      "name": "Multicall3.aggregate3Value mixing ETH payment + unlimited increaseAllowance",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "MULTICALL",
+      "topFindingId": "MULTICALL_HIDDEN_UNLIMITED_APPROVAL",
+      "latencyMs": 0.11
+    },
+    {
+      "id": "ATK-24",
+      "category": "Multicall Obfuscation",
+      "name": "2-layer nested multicall inside Multicall3.aggregate hiding unlimited approve",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "MULTICALL",
+      "topFindingId": "MULTICALL_HIDDEN_UNLIMITED_APPROVAL",
+      "latencyMs": 0.1
+    },
+    {
+      "id": "ATK-25",
+      "category": "Phishing & Blind Signing",
+      "name": "Community phishing domain (MetaMask eth-phishing-detect exact match)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "KNOWN_MALICIOUS"
+      ],
+      "actualVerdict": "KNOWN_MALICIOUS",
+      "matchedExpected": true,
+      "decodedKind": "NATIVE_TRANSFER",
+      "topFindingId": "KNOWN_MALICIOUS_ORIGIN",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "ATK-26",
+      "category": "Phishing & Blind Signing",
+      "name": "Subdomain of community phishing domain (claim.<domain>)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "KNOWN_MALICIOUS"
+      ],
+      "actualVerdict": "KNOWN_MALICIOUS",
+      "matchedExpected": true,
+      "decodedKind": "NATIVE_TRANSFER",
+      "topFindingId": "KNOWN_MALICIOUS_ORIGIN",
+      "latencyMs": 0.01
+    },
+    {
+      "id": "ATK-27",
+      "category": "Phishing & Blind Signing",
+      "name": "Curated impersonation phishing origin (uniswap-v4-claim.example)",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "KNOWN_MALICIOUS"
+      ],
+      "actualVerdict": "KNOWN_MALICIOUS",
+      "matchedExpected": true,
+      "decodedKind": "NATIVE_TRANSFER",
+      "topFindingId": "KNOWN_MALICIOUS_ORIGIN",
+      "latencyMs": 0.01
+    },
+    {
+      "id": "ATK-28",
+      "category": "Phishing & Blind Signing",
+      "name": "Cross-origin malicious iframe embedded inside news page",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "NATIVE_TRANSFER",
+      "topFindingId": "CROSS_ORIGIN_IFRAME",
+      "latencyMs": 0.01
+    },
+    {
+      "id": "ATK-29",
+      "category": "Phishing & Blind Signing",
+      "name": "Deprecated raw eth_sign 32-byte blind hash trap",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "RAW_ETH_SIGN",
+      "topFindingId": "RAW_ETH_SIGN",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "ATK-30",
+      "category": "Phishing & Blind Signing",
+      "name": "Raw eth_sign arbitrary payload signature trap",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "RAW_ETH_SIGN",
+      "topFindingId": "RAW_ETH_SIGN",
+      "latencyMs": 0.01
+    },
+    {
+      "id": "ATK-31",
+      "category": "Adversarial Evasion",
+      "name": "Custom unverified selector (0x99887766 — fake claimRewards) refused as UNANALYZED",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNANALYZED"
+      ],
+      "actualVerdict": "UNANALYZED",
+      "matchedExpected": true,
+      "decodedKind": "UNKNOWN_CALLDATA",
+      "topFindingId": "OPAQUE_CALLDATA",
+      "latencyMs": 0.2
+    },
+    {
+      "id": "ATK-32",
+      "category": "Adversarial Evasion",
+      "name": "Upgradeable EIP-1967 Beacon proxy contract flagged as REVIEW_NEEDED",
+      "groundTruth": "MALICIOUS_OR_DANGEROUS",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "REVIEW_NEEDED"
+      ],
+      "actualVerdict": "REVIEW_NEEDED",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "EIP1967_BEACON_PROXY",
+      "latencyMs": 0.78
+    },
+    {
+      "id": "BEN-01",
+      "category": "Capped Approvals & Revokes",
+      "name": "Capped 50 USDC approve on Mainnet",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.04
+    },
+    {
+      "id": "BEN-02",
+      "category": "Capped Approvals & Revokes",
+      "name": "Capped 250 USDT approve on Mainnet",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-03",
+      "category": "Capped Approvals & Revokes",
+      "name": "Capped 1.5 WETH approve on Mainnet",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "BEN-04",
+      "category": "Capped Approvals & Revokes",
+      "name": "Capped 1,000 DAI approve on Mainnet",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-05",
+      "category": "Capped Approvals & Revokes",
+      "name": "Capped 0.25 WBTC approve on Mainnet",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "BEN-06",
+      "category": "Capped Approvals & Revokes",
+      "name": "Capped 100 USDC approve on Sepolia Testnet",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-07",
+      "category": "Capped Approvals & Revokes",
+      "name": "Revoke USDC allowance via approve(spender, 0)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-08",
+      "category": "Capped Approvals & Revokes",
+      "name": "Revoke WETH allowance via approve(spender, 0)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-09",
+      "category": "Capped Approvals & Revokes",
+      "name": "ERC-20 decreaseAllowance by 50 USDC",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_DECREASE_ALLOWANCE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-10",
+      "category": "Capped Approvals & Revokes",
+      "name": "Capped ERC-20 increaseAllowance by 25 DAI",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_INCREASE_ALLOWANCE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-11",
+      "category": "NFT Revokes & Direct Transfers",
+      "name": "Revoke NFT collection operator setApprovalForAll(operator, false)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "NFT_SET_APPROVAL_FOR_ALL",
+      "topFindingId": null,
+      "latencyMs": 0.03
+    },
+    {
+      "id": "BEN-12",
+      "category": "NFT Revokes & Direct Transfers",
+      "name": "Direct ERC-20 transfer of 20 USDC",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_TRANSFER",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-13",
+      "category": "NFT Revokes & Direct Transfers",
+      "name": "Direct ERC-20 transferFrom of 10 DAI",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_TRANSFER_FROM",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "BEN-14",
+      "category": "NFT Revokes & Direct Transfers",
+      "name": "Direct ERC-721 safeTransferFrom(from, to, tokenId)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "NFT_TRANSFER",
+      "topFindingId": null,
+      "latencyMs": 0.03
+    },
+    {
+      "id": "BEN-15",
+      "category": "NFT Revokes & Direct Transfers",
+      "name": "Direct ERC-1155 safeTransferFrom(from, to, id, value, data)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "NFT_TRANSFER",
+      "topFindingId": null,
+      "latencyMs": 0.03
+    },
+    {
+      "id": "BEN-16",
+      "category": "NFT Revokes & Direct Transfers",
+      "name": "Native ETH transfer of 0.05 ETH",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "NATIVE_TRANSFER",
+      "topFindingId": null,
+      "latencyMs": 0.01
+    },
+    {
+      "id": "BEN-17",
+      "category": "NFT Revokes & Direct Transfers",
+      "name": "Native ETH transfer of 1.0 ETH to WETH contract",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "NATIVE_TRANSFER",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.01
+    },
+    {
+      "id": "BEN-18",
+      "category": "NFT Revokes & Direct Transfers",
+      "name": "Capped on-chain Permit2 approve(USDC, router, 100 USDC, expiry)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "BEN-19",
+      "category": "Benign Batches & SIWE Logins",
+      "name": "multicall(bytes[]) bundling transfer + allowance revoke",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "MULTICALL",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.08
+    },
+    {
+      "id": "BEN-20",
+      "category": "Benign Batches & SIWE Logins",
+      "name": "Multicall3.aggregate3 bundling two safe token transfers",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "MULTICALL",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.09
+    },
+    {
+      "id": "BEN-21",
+      "category": "Benign Batches & SIWE Logins",
+      "name": "Multicall3.aggregate3Value sending ETH + capped 50 USDC approve",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "MULTICALL",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.08
+    },
+    {
+      "id": "BEN-22",
+      "category": "Benign Batches & SIWE Logins",
+      "name": "Standard Sign-In with Ethereum (SIWE) personal_sign message",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "PERSONAL_SIGN",
+      "topFindingId": null,
+      "latencyMs": 0.08
+    },
+    {
+      "id": "BEN-23",
+      "category": "Benign Batches & SIWE Logins",
+      "name": "Plain-text wallet ownership login via personal_sign",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "PERSONAL_SIGN",
+      "topFindingId": null,
+      "latencyMs": 0
+    },
+    {
+      "id": "BEN-24",
+      "category": "Benign Batches & SIWE Logins",
+      "name": "Readable off-chain governance snapshot vote via personal_sign",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "PERSONAL_SIGN",
+      "topFindingId": null,
+      "latencyMs": 0.03
+    },
+    {
+      "id": "BEN-25",
+      "category": "Benign Batches & SIWE Logins",
+      "name": "Capped USDC approve verified via RPC (contract spender, non-proxy)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "KNOWN_CONTRACT_LABEL",
+      "latencyMs": 0.27
+    },
+    {
+      "id": "BEN-26",
+      "category": "Benign Batches & SIWE Logins",
+      "name": "Capped approve on EIP-1167 minimal clone contract (INFO clone note)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": false,
+      "expectedVerdicts": [
+        "UNDERSTOOD"
+      ],
+      "actualVerdict": "UNDERSTOOD",
+      "matchedExpected": true,
+      "decodedKind": "ERC20_APPROVE",
+      "topFindingId": "EIP1167_MINIMAL_PROXY",
+      "latencyMs": 0.22
+    },
+    {
+      "id": "BEN-27",
+      "category": "Complex Protocol Actions (Defensive Friction)",
+      "name": "Paid Seaport NFT listing returning 1.5 ETH to offerer",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": true,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "SEAPORT_ORDER",
+      "topFindingId": "SEAPORT_ORDER_SIGNATURE",
+      "latencyMs": 0.03
+    },
+    {
+      "id": "BEN-28",
+      "category": "Complex Protocol Actions (Defensive Friction)",
+      "name": "Capped EIP-2612 Permit (50 USDC on matching chain)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": true,
+      "expectedVerdicts": [
+        "REVIEW_NEEDED"
+      ],
+      "actualVerdict": "REVIEW_NEEDED",
+      "matchedExpected": true,
+      "decodedKind": "EIP2612_PERMIT",
+      "topFindingId": "GASLESS_PERMIT",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-29",
+      "category": "Complex Protocol Actions (Defensive Friction)",
+      "name": "Capped Permit2 PermitSingle (25 USDC on matching chain)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": true,
+      "expectedVerdicts": [
+        "HIGH_RISK"
+      ],
+      "actualVerdict": "HIGH_RISK",
+      "matchedExpected": true,
+      "decodedKind": "PERMIT2_SINGLE",
+      "topFindingId": "PERMIT2_SIGNATURE",
+      "latencyMs": 0.02
+    },
+    {
+      "id": "BEN-30",
+      "category": "Complex Protocol Actions (Defensive Friction)",
+      "name": "Sourcify-verified custom stake(uint256,address) call",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": true,
+      "expectedVerdicts": [
+        "REVIEW_NEEDED"
+      ],
+      "actualVerdict": "REVIEW_NEEDED",
+      "matchedExpected": true,
+      "decodedKind": "SOURCIFY_DECODED",
+      "topFindingId": "SOURCIFY_CUSTOM_FUNCTION_REVIEW",
+      "latencyMs": 0.48
+    },
+    {
+      "id": "BEN-31",
+      "category": "Complex Protocol Actions (Defensive Friction)",
+      "name": "Custom DEX router selector in local-only mode (honest UNANALYZED)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": true,
+      "expectedVerdicts": [
+        "UNANALYZED"
+      ],
+      "actualVerdict": "UNANALYZED",
+      "matchedExpected": true,
+      "decodedKind": "UNKNOWN_CALLDATA",
+      "topFindingId": "OPAQUE_CALLDATA",
+      "latencyMs": 0.54
+    },
+    {
+      "id": "BEN-32",
+      "category": "Complex Protocol Actions (Defensive Friction)",
+      "name": "Custom DAO ballot EIP-712 typed data (honest UNANALYZED)",
+      "groundTruth": "BENIGN",
+      "intentionalFriction": true,
+      "expectedVerdicts": [
+        "UNANALYZED"
+      ],
+      "actualVerdict": "UNANALYZED",
+      "matchedExpected": true,
+      "decodedKind": "TYPED_DATA_GENERIC",
+      "topFindingId": null,
+      "latencyMs": 0.03
+    }
+  ]
+}

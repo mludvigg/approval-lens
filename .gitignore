@@ -5,3 +5,5 @@ dist/
 coverage/
 .agents/
 projeto-completo.txt
+playwright-report/
+test-results/

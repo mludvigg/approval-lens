@@ -1,5 +1,7 @@
 # Approval Lens
 
+[![CI — Security Suite & Chrome MV3 E2E](https://github.com/mludvigg/approval-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/mludvigg/approval-lens/actions/workflows/ci.yml)
+
 **Approval Lens** is an open-source, local-first Chrome Manifest V3 extension that intercepts EVM wallet approval and signature requests *before* MetaMask, Rabby, or any `EIP-1193` / `EIP-6963` wallet prompts you—translating raw hex permissions into plain language (`EN` / `PT-BR` / `ES`) and surfacing transparent, evidence-backed risk verdicts.
 
 > Built to prioritize **explainability, local-first privacy (`0` outbound network calls by default), honest uncertainty, and minimal Chrome privileges (`["storage"]` only)**—never opaque "100% Safe" scores and never requesting custody of keys.
@@ -76,6 +78,7 @@ npm run typecheck
 npm test          # runs all unit + i18n + 64-fixture benchmark tests
 npm run benchmark # regenerates BENCHMARK.md & benchmarks/latest-results.json
 npm run build     # builds Chrome MV3 extension into dist/
+npm run test:e2e  # runs headless Chromium MV3 Playwright E2E security suite
 npm run lab       # launches local 11-scenario Attack Test Lab on http://127.0.0.1:4173
 ```
 

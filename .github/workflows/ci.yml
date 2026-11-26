@@ -1,0 +1,47 @@
+name: CI — Security Suite & Chrome MV3 E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck · Unit · Benchmark · Build · Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies cleanly
+        run: npm ci
+
+      - name: Run TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Run Vitest unit & i18n suite
+        run: npm test
+
+      - name: Verify 64-fixture drainer evaluation benchmark
+        run: npm run benchmark
+
+      - name: Build Chrome Manifest V3 extension (dist/)
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright Chrome MV3 E2E security suite
+        run: npm run test:e2e
